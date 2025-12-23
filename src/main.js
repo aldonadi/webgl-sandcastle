@@ -4,11 +4,13 @@ import { Scene } from './scene/Scene.js';
 import { Cube } from './scene/primitives/Cube.js';
 import { Plane } from './scene/primitives/Plane.js';
 import { InputManager } from './input/InputManager.js';
+import { DocumentationViewer } from './ui/DocumentationViewer.js';
 
 const renderer = new Renderer('glCanvas');
 const camera = new Camera();
 const scene = new Scene();
 const input = new InputManager();
+const docs = new DocumentationViewer();
 
 // Setup Scene
 const floor = new Plane(renderer.gl, 20, [0.4, 0.4, 0.4]);

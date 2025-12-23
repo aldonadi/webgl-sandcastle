@@ -1,23 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>WebGL Sandcastle</title>
-    <link rel="stylesheet" href="./src/style.css" />
-  </head>
-  <body>
-    <canvas id="glCanvas"></canvas>
-    
-    <div id="ui-layer">
-      <div id="joystick-left" class="joystick-zone">
-        <div class="joystick-knob"></div>
-      </div>
-      <div id="joystick-right" class="joystick-zone">
-        <div class="joystick-knob"></div>
-      </div>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>WebGL Sandcastle</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+
+<body>
+  <canvas id="glCanvas"></canvas>
+
+  <div id="ui-layer">
+    <div id="joystick-left" class="joystick-zone">
+      <div class="joystick-knob"></div>
+    </div>
+    <div id="joystick-right" class="joystick-zone">
+      <div class="joystick-knob"></div>
     </div>
 
-    <script type="module" src="/src/main.js"></script>
-  </body>
+    <button id="btn-help" class="icon-btn" aria-label="Help">?</button>
+  </div>
+
+  <!-- Documentation Modal -->
+  <div id="doc-modal" class="modal hidden">
+    <div class="modal-content">
+      <button id="btn-close-doc" class="close-btn">&times;</button>
+      <div class="doc-layout">
+        <nav class="doc-sidebar">
+          <ul>
+            <li data-doc="readme" class="active">Usage</li>
+            <li data-doc="developer">Developer</li>
+            <li data-doc="theory">Theory</li>
+          </ul>
+        </nav>
+        <main id="doc-viewer" class="doc-body markdown-body">
+          <!-- Content injected here -->
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
 </html>

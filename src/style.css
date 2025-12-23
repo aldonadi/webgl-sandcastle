@@ -1,11 +1,13 @@
-body, html {
+body,
+html {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
   background-color: #000;
-  touch-action: none; /* Prevent default touch actions like scrolling */
+  touch-action: none;
+  /* Prevent default touch actions like scrolling */
 }
 
 #glCanvas {
@@ -20,7 +22,8 @@ body, html {
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none; /* Let touches pass through to zones if needed, or handle on zones */
+  pointer-events: none;
+  /* Let touches pass through to zones if needed, or handle on zones */
 }
 
 .joystick-zone {
@@ -31,7 +34,8 @@ body, html {
   background-color: rgba(255, 255, 255, 0.1);
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  pointer-events: auto; /* Re-enable pointer events for interaction */
+  pointer-events: auto;
+  /* Re-enable pointer events for interaction */
   touch-action: none;
 }
 
@@ -52,5 +56,203 @@ body, html {
   background-color: rgba(255, 255, 255, 0.5);
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  pointer-events: none; /* Knob shouldn't capture events, the zone does */
+  pointer-events: none;
+  /* Knob shouldn't capture events, the zone does */
+}
+
+/* UI Controls */
+.icon-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  transition: background 0.2s;
+  z-index: 100;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 1;
+  transition: opacity 0.3s;
+}
+
+.modal.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-content {
+  width: 90%;
+  max-width: 1000px;
+  height: 85%;
+  background: #1a1a1a;
+  border-radius: 12px;
+  border: 1px solid #333;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 28px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.close-btn:hover {
+  color: white;
+}
+
+/* Doc Layout */
+.doc-layout {
+  display: flex;
+  height: 100%;
+}
+
+.doc-sidebar {
+  width: 200px;
+  background: #111;
+  border-right: 1px solid #333;
+  padding-top: 50px;
+  flex-shrink: 0;
+}
+
+.doc-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.doc-sidebar li {
+  padding: 15px 20px;
+  color: #888;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.doc-sidebar li:hover {
+  color: #eee;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.doc-sidebar li.active {
+  color: #fff;
+  border-left-color: #007bff;
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.doc-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px;
+  color: #ddd;
+  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Markdown Styles (Simple subset) */
+.markdown-body h1 {
+  border-bottom: 1px solid #333;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+  color: #fff;
+}
+
+.markdown-body h2 {
+  margin-top: 30px;
+  margin-bottom: 15px;
+  color: #eee;
+}
+
+.markdown-body h3 {
+  margin-top: 20px;
+  color: #ddd;
+}
+
+.markdown-body pre {
+  background: #111;
+  padding: 15px;
+  border-radius: 6px;
+  overflow-x: auto;
+  border: 1px solid #333;
+}
+
+.markdown-body code {
+  font-family: 'Consolas', monospace;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+}
+
+.markdown-body blockquote {
+  border-left: 4px solid #007bff;
+  margin: 0;
+  padding-left: 15px;
+  color: #aaa;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 20px 0;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid #444;
+  padding: 10px;
+  text-align: left;
+}
+
+.markdown-body th {
+  background: #222;
+}
+
+.markdown-body a {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
 }
