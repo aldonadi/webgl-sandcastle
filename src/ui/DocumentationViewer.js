@@ -1,4 +1,6 @@
 import { marked } from 'marked';
+import renderMathInElement from 'katex/contrib/auto-render';
+import 'katex/dist/katex.min.css';
 
 // Import markdown files as raw strings via Vite
 import readmeRaw from '../../doc/README.md?raw';
@@ -74,11 +76,20 @@ export class DocumentationViewer {
 
     render() {
         const rawMarkdown = this.docs[this.currentDoc];
-        // Pre-process LaTeX-ish symbols for display if needed, but for now just raw markdown
-        // Marked doesn't support MathJax/KaTeX out of the box without extensions.
-        // For now, we rely on the raw text explanations in THEORY.md which are readable.
-        // Ideally we would add katex here, but keeping it simple for "Vanilla + Marked".
 
+        // Render Markdown to HTML
         this.viewer.innerHTML = marked.parse(rawMarkdown);
+
+        // Render Math (LaTeX) inside the viewer element
+        // We configure delimiters to match standard LaTeX usage often found in markdown ($...$ and $$...$$)
+        renderMathInElement(this.viewer, {
+            delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false },
+                { left: '\\(', right: '\\)', display: false },
+                { left: '\\[', right: '\\]', display: true }
+            ],
+            throwOnError: false
+        });
     }
 }

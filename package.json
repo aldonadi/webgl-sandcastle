@@ -12,6 +12,7 @@
     "vite": "^5.4.11"
   },
   "dependencies": {
+    "katex": "^0.16.27",
     "marked": "^17.0.1"
   }
 }
