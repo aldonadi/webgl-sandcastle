@@ -69,82 +69,11 @@ scene.add(moat);
 const collidables = [];
 
 // --- Build Castle ---
+import { CastleBuilder } from './scene/CastleBuilder.js';
 
-const keepSize = 4.0;
-const keepHeight = 3.0;
-const wallThick = 0.5;
-const towerRadius = 0.8;
-const towerHeight = 5.0;
+const builder = new CastleBuilder(renderer.gl, texGen, setSandMaterial);
+builder.build(scene, collidables);
 
-// Central Keep
-const keep = new Cube(renderer.gl, 1.0); // Size 1, scaled
-setSandMaterial(keep);
-keep.setPosition(0, keepHeight / 2, 0); // Center
-keep.setScale(keepSize, keepHeight, keepSize);
-scene.add(keep);
-collidables.push(keep);
-
-// Towers (4 Corners)
-const dist = keepSize / 2 + towerRadius * 0.5;
-
-function createTower(x, z) {
-  // Cylinder Body
-  const t = new Cylinder(renderer.gl, towerRadius, towerHeight, 32);
-  setSandMaterial(t);
-  t.setPosition(x, towerHeight / 2, z);
-  scene.add(t);
-  collidables.push(t);
-
-  // Cone Roof
-  const roofHeight = 2.0;
-  const roof = new Cone(renderer.gl, towerRadius + 0.2, roofHeight, 32);
-  setSandMaterial(roof);
-  roof.setPosition(x, towerHeight + 0.01, z); // 0.01 gap
-  scene.add(roof);
-}
-
-createTower(dist, dist);
-createTower(dist, -dist);
-createTower(-dist, dist);
-createTower(-dist, -dist);
-
-// Walls
-const wallLen = keepSize;
-const wallH = 2.0;
-
-function createWall(x, z, rotY, len) {
-  const w = new Cube(renderer.gl, 1.0);
-  setSandMaterial(w);
-  w.setPosition(x, wallH / 2, z);
-  w.setRotation(0, rotY, 0);
-  w.setScale(len, wallH, wallThick);
-  scene.add(w);
-  collidables.push(w);
-}
-
-createWall(0, dist, 0, keepSize); // Back
-createWall(0, -dist, 0, keepSize); // Front
-createWall(dist, 0, 90, keepSize); // Right
-createWall(-dist, 0, 90, keepSize); // Left
-
-// Drawbridge
-const bridge = new Cube(renderer.gl, 1.0);
-bridge.setTexture(texSand);
-bridge.setNormalMap(texSandNormal);
-bridge.baseColor = [0.6, 0.4, 0.2]; // Wood-ish tint
-bridge.setPosition(0, 0.1, -dist - 2.0); // Outside front wall
-bridge.setScale(1.5, 0.2, 3.0);
-bridge.setRotation(10, 0, 0); // Slight angle
-scene.add(bridge);
-// Bridge is walkable, not collidable (or maybe it is? Let's ignore it for now)
-
-// Ghost Cube (Pass-through test)
-const ghost = new Cube(renderer.gl, 1.0);
-ghost.setTexture(texSand);
-ghost.setPosition(5, 1, 0); // To the right of entrance
-ghost.isCollidable = false; // MAGIC FLAG
-scene.add(ghost);
-collidables.push(ghost); // Add to list, but flag should prevent collision
 
 // -- Power-up (Golden Torus) --
 // Diameter 0.5 -> 1.0 (Radius ~0.5)
