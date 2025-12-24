@@ -18,7 +18,7 @@ export class ThirdPersonCamera extends Camera {
         this.yaw = -90; // Degrees
         this.pitch = -15; // Degrees
 
-        this.targetPostion = new Vector3(0, 0, 0); // Player position
+        this.targetPosition = new Vector3(0, 0, 0); // Player position
     }
 
     update(dt, player, lookInput, isPlayerMoving) {
@@ -34,57 +34,24 @@ export class ThirdPersonCamera extends Camera {
 
         // 2. Auto-Align logic (Case 1)
         if (isPlayerMoving) {
-            // If player is moving, we want the camera to slowly align behind the player
-            // UNLESS the user is actively using the look stick (lookInput != 0)
-
-            if (Math.abs(lookInput.x) < 0.01 && Math.abs(lookInput.y) < 0.01) {
-                // Player Rotation is in Rads, Convert to Degs
-                // Player faces 'rotation'. Camera should face 'rotation'.
-                // Actually Camera is 'behind', so Camera Yaw should equal Player Yaw (if looking forward).
-                // Player.rotation is standard atan2(x, z). 0 is +Z? 
-                // In JS Math.atan2(x, z): 0 is +Z? No, atan2(y, x).
-                // Player logic: atan2(dx, dz). 
-                // If moving +Z (dz=1, dx=0), rot = 0.
-                // Camera Yaw 0 -> +X (in standard math?) No, let's check Camera.js
-                // Camera.js: x=cos(yaw)*cos(pitch), z=sin(yaw)*cos(pitch).
-                // Yaw 0 -> x=1, z=0 (+X).
-                // Yaw 90 -> x=0, z=1 (+Z).
-                // So if Player moves +Z, rot is 0 (from atan2(dx, dz)?? wait atan2(x,y) -> atan2(dx, dz) is usually (x,y) args order).
-                // Math.atan2(y, x). I used atan2(dx, dz). So y=dx, x=dz.
-                // If dz=1, dx=0 (move +Z), atan2(0, 1) = 0.
-                // So Player Rot 0 is +Z.
-                // Camera Yaw for +Z is 90 degs. 
-                // So Target Yaw = PlayerRot(deg) + 90? Or something.
-
-                // Let's rely on visual feedback and tweak offset.
-                // Target Yaw = Player Rotation converted to Degrees.
-                // But we need to map conventions. 
-
-                // Let's implement a "Soft Following"
-                // Ideally calculate the angle of movement vector and align to that.
-
-                // For now, let's implement the orbit and shoulder offset. 
-                // The "auto-align" can be annoying if implemented wrong. 
-                // User said: "Camera should generally try to be looking in the same direction that the character is looking"
-
+            // Strict follow mode requested: "turn with them"
+            // If user is NOT looking around, we strictly align camera behind player
+            if (Math.abs(lookInput.x) < 0.001 && Math.abs(lookInput.y) < 0.001) {
                 const playerRotDeg = player.rotation * 180 / Math.PI;
-                // Conversion: Player 0 (+Z). Camera 90 (+Z). Offset 90.
-                // Player atan2(dx, dz): +X(1,0)->90. 
-                // Camera: 0->+X. 
-                // So PlayerRot == CameraYaw.
 
-                // If user is NOT controlling camera, lerp towards player rot
-                // But wait, "Over the shoulder". 
-                // We apply offset later.
+                // Player Rot 0 (+Z) -> Camera Yaw 90 (+Z)
+                // Player Rot 90 (+X) -> Camera Yaw 0 (+X)
+                // Relation: TargetYaw = 90 - playerRotDeg
 
-                // Lerp
-                const targetYaw = playerRotDeg;
-                // Shortest angle interpolation
+                const targetYaw = 90 - playerRotDeg;
+
                 let delta = targetYaw - this.yaw;
                 while (delta > 180) delta -= 360;
                 while (delta < -180) delta += 360;
 
-                this.yaw += delta * 2.0 * dt; // speed 2.0
+                // High speed for strict follow (almost locked, but smooth enough to not jitter)
+                const followSpeed = 5.0;
+                this.yaw += delta * followSpeed * dt;
             }
         }
 
@@ -97,15 +64,6 @@ export class ThirdPersonCamera extends Camera {
         const radPitch = MathUtils.degToRad(this.pitch);
 
         // 1. Calculate Orbit Position (relative to target center)
-        // x = r * cos(pitch) * cos(yaw)
-        // y = r * sin(pitch)
-        // z = r * cos(pitch) * sin(yaw)
-        // NOTE: Math.sin(pitch) for Y is OK.
-        // BUT: We want "behind" to be determined by Yaw. 
-        // If Yaw is direction camera is LOOKING reduced by 180?
-        // No, Camera.js `updateViewMatrix` calculates "direction" from yaw/pitch.
-        // If we want Camera to LOOK at player from a distance:
-        // CameraPos = Target - Direction * Distance
 
         const dirX = Math.cos(radYaw) * Math.cos(radPitch);
         const dirY = Math.sin(radPitch);
