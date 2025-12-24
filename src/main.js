@@ -164,7 +164,7 @@ function loop(time) {
   player.resolveCollision(collidables);
 
   // Update Camera
-  camera.update(dt, player, look, isPlayerMoving);
+  camera.update(dt, player, look, isPlayerMoving, collidables);
 
   // Animate Light to show varying bump shadows
   const lightTime = time / 1000;
