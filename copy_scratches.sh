@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Find the most recently created directory inside ~/.gemini/antigravity/brain/
+latest_dir=$(ls -td ~/.gemini/antigravity/brain/*/ 2>/dev/null | head -n1)
+if [[ -z "$latest_dir" ]]; then
+  echo -e "\e[31m[-] No directories found in ~/.gemini/antigravity/brain/\e[0m"
+  exit 1
+fi
+
+# Ensure the scratch directory exists
+mkdir -p ./scratch
+
+# Files to check
+targets=(implementation_plan.md task.md walkthrough.md)
+
+# Colors
+GREEN='\e[32m'
+RED='\e[31m'
+NC='\e[0m' # No Color
+
+for fname in "${targets[@]}"; do
+  src_file="$latest_dir/$fname"
+  dest_file="./scratch/$fname"
+
+  # Skip if the source file does not exist
+  if [[ ! -f "$src_file" ]]; then
+    continue
+  fi
+
+  if [[ -f "$dest_file" ]]; then
+    src_mtime=$(stat -c %Y "$src_file")
+    dest_mtime=$(stat -c %Y "$dest_file")
+    if ((src_mtime > dest_mtime)); then
+      cp "$src_file" "$dest_file"
+      echo -e "${GREEN}[+] Copied ${fname} into scratch: file was newer${NC}"
+    else
+      echo -e "${RED}[-] NOT copying ${fname}: file is older than scratch copy${NC}"
+    fi
+  else
+    cp "$src_file" "$dest_file"
+    echo -e "${GREEN}[+] Copied ${fname} into scratch: didn't already exist${NC}"
+  fi
+done

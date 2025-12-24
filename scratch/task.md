@@ -1,0 +1,37 @@
+# Third Person Player Implementation
+
+- [x] Create Sphere Primitive `src/scene/primitives/Sphere.js` <!-- id: 0 -->
+- [x] Create Player Class `src/scene/Player.js` <!-- id: 1 -->
+    - [x] Mesh generation (Sphere)
+    - [x] Texture generation (Visually interesting)
+    - [x] Movement logic (Input -> Velocity -> Position)
+- [x] Implement Collision Detection <!-- id: 2 -->
+    - [x] Simple implementation to prevent walking through walls/towers
+- [x] Implement Third Person Camera `src/scene/ThirdPersonCamera.js` <!-- id: 3 -->
+    - [x] Follow logic (Case 1)
+    - [x] Orbit logic (Case 2)
+    - [x] Smooth transitions
+- [x] Integrate into `main.js` <!-- id: 4 -->
+    - [x] Replace current camera/input logic
+    - [x] Add Player to scene
+    - [x] Link Input -> Player -> Camera
+- [x] Debugging
+    - [x] Fix `targetPostion` logic error
+- [x] Add Breathing Animation <!-- id: 6 -->
+    - [x] Initialize breathingTime
+    - [x] Implement scale modulation
+- [x] Implement Camera Collision <!-- id: 7 -->
+    - [x] Update `ThirdPersonCamera.js` with `resolveCollision`
+    - [x] Add intersection math helpers
+- [x] Robust Player Collision <!-- id: 8 -->
+    - [x] Add `isCollidable` to `Mesh.js`
+    - [x] Implement AABB logic in `Player.js`
+    - [x] Verify collision with blocking objects
+    - [x] Add Torus and Power-up <!-- id: 9 -->
+    - [x] Create `Torus.js`
+    - [x] Add `uEmissive` support to Shaders/Mesh
+- [x] Robust Collision Refactor <!-- id: 10 -->
+    - [x] Update `Vector3.js`
+    - [x] Update `Mesh.js` with OBB Collision
+    - [x] Update `Player.js` with Step-Up Logic
+    - [x] Verify Step-Up and Slopes
