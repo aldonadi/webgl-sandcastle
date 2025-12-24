@@ -194,15 +194,60 @@ To make the color pulse over time:
    ```
 
 2. **Update Fragment Shader**:
-   ```glsl
-   precision mediump float;
-   varying vec3 vColor;
-   uniform float uTime; // Receive time
-   
-   void main() {
-     // Modulate brightness with sine wave
-     float brightness = 0.5 + 0.5 * sin(uTime); 
      gl_FragColor = vec4(vColor * brightness, 1.0);
-   }
-   ```
+}
+```
 This calculates a new color for every pixel, every frame, creating a pulsing animation without changing the geometry.
+
+---
+
+## 7. Texturing & Procedural Generation
+
+### Texture Mapping (UV Coordinates)
+To "wrap" a 2D image (Texture) around a 3D object, we use **UV Coordinates**.
+- **$U$**: The horizontal axis of the texture ($0 \to 1$).
+- **$V$**: The vertical axis of the texture ($0 \to 1$).
+
+Each vertex gets a $(u, v)$ pair. The GPU interpolates these values across the triangle.
+For a square face, the corners might be: $(0,0), (1,0), (1,1), (0,1)$.
+
+In the fragment shader, we sample the texture using these interpolated coordinates:
+```glsl
+vec4 color = texture2D(uTexture, vTexCoord);
+```
+
+### Procedural Generation
+Instead of loading an image file (PNG/JPG), we generate textures algorithmically using the CPU (HTML5 Canvas) before uploading to the GPU.
+
+**Perlin Noise / Randomness**:
+We create organic patterns by manipulating pixel data directly using random values.
+$$ C_{pixel} = C_{base} + \text{noise}(x, y) \times \text{intensity} $$
+Where $\text{noise}(x, y)$ returns a random value between $-1.0$ and $1.0$.
+
+---
+
+## 8. Lighting Theory: Blinn-Phong Model
+
+We use the **Blinn-Phong Reflection Model** to simulate realistic lighting. It consists of three components:
+
+$$ I_{total} = I_{ambient} + I_{diffuse} + I_{specular} $$
+
+### 1. Ambient
+A constant base light that ensures no part of the scene is pitch black. Simulates indirect light scattering.
+$$ I_{ambient} = K_{ambient} \times C_{light} $$
+
+### 2. Diffuse (Lambertian)
+Simulates directional light hitting a matte surface. It depends on the angle between the **Surface Normal** ($\mathbf{N}$) and the **Light Direction** ($\mathbf{L}$).
+$$ I_{diffuse} = \max(\mathbf{N} \cdot \mathbf{L}, 0) \times C_{light} $$
+*If the dot product is 0 or negative (facing away), the light contributes nothing.*
+
+### 3. Specular (Blinn-Phong)
+Simulates the bright white "shiny spot" on glossy surfaces. It depends on the view direction.
+Blinn-Phong uses the **Halfway Vector** ($\mathbf{H}$), which is halfway between the Light Direction ($\mathbf{L}$) and View Direction ($\mathbf{V}$).
+
+$$ \mathbf{H} = \frac{\mathbf{L} + \mathbf{V}}{||\mathbf{L} + \mathbf{V}||} $$
+
+The intensity is calculated by comparing this Halfway vector to the Surface Normal ($\mathbf{N}$):
+$$ I_{specular} = (\max(\mathbf{N} \cdot \mathbf{H}, 0))^{\alpha} \times I_{intensity} $$
+Where $\alpha$ is the **Shininess** factor (e.g., 32 or 64). Higher shininess = smaller, sharper highlight.
+

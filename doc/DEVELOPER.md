@@ -50,8 +50,16 @@ A custom implementation of a column-major Matrix4 class.
 - **InputManager.js**: Aggregates the left (Move) and right (Look) joysticks into a single queryable API.
 
 #### 4. The Scene Graph
-- **Mesh.js**: The base class for visible objects. It creates GL buffers for vertices, colors, and indices. It also holds its own `modelMatrix` (position/rotation/scale in the world).
-- **Primitives**: `Cube.js` and `Plane.js` extend `Mesh` and simply generate the raw vertex arrays for those shapes in their constructors.
+- **Mesh.js**: The base class for visible objects. It creates GL buffers for vertices, colors, normals, and UVs. It also holds its own `modelMatrix` (position/rotation/scale in the world) and material properties (`specularIntensity`, `shininess`).
+- **Primitives**: `Cube.js` and `Plane.js` extend `Mesh`.
+
+#### 5. Procedural Texturing (`renderer/TextureGenerator.js`)
+A utility class that generates `WebGLTexture` objects using an off-screen HTML5 Canvas.
+- **`createTexture(width, height, options)`**:
+  - `options.color`: Base hex color.
+  - `options.gradient`: Linear gradient definition `{start, end, dir}`.
+  - `options.noise`: Amount of random RGB noise to overlay (0.0 - 1.0).
+- **Usage**: Call `texGen.createTexture(...)` during initialization and pass the result to `mesh.setTexture()`.
 
 ## How to Add a New Shape
 
