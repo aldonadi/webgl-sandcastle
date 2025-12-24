@@ -12,6 +12,7 @@ import { DocumentationViewer } from './ui/DocumentationViewer.js';
 import { TextureGenerator } from './renderer/TextureGenerator.js';
 
 import { LensFlare } from './scene/effects/LensFlare.js';
+import { ParticleSystem, ParticleEmitter } from './scene/effects/ParticleSystem.js';
 
 const renderer = new Renderer('glCanvas');
 // Sky Color: Summer Day Blue
@@ -24,6 +25,7 @@ const docs = new DocumentationViewer();
 
 const texGen = new TextureGenerator(renderer.gl);
 const lensFlare = new LensFlare(renderer.gl, texGen);
+const particleSystem = new ParticleSystem(renderer.gl);
 
 // -- Textures --
 // 1. Sand Diffuse
@@ -37,6 +39,11 @@ const texWater = texGen.createTexture(256, 256, {
   noise: 0.2
 });
 const texWaterNormal = texGen.createNormalMap(256, 256, 0.5);
+
+// 4. Particle Textures
+const texFire = texGen.createFireTexture(64, 64);
+const texSpark = texGen.createSparkTexture(64, 64);
+const texDust = texGen.createDustTexture(64, 64);
 
 // -- Scene Construction --
 
@@ -98,6 +105,65 @@ torus.setRotation(45, 0, 0);
 scene.add(torus);
 collidables.push(torus); // Pass through enabled via flag
 
+// -- Particle Emitters --
+
+// 1. Fire (Plane Source, near main Keep gate?)
+const fireEmitter = new ParticleEmitter({
+  texture: texFire,
+  rate: 50,
+  maxParticles: 200,
+  life: { min: 1.0, max: 2.0 },
+  velocity: { speedMin: 2.0, speedMax: 4.0, dirMode: 'up' }, // Custom up mode logic in Emitter
+  gravity: 3.0, // Rising
+  color: { start: [1.0, 1.0, 1.0, 1.0], end: [1.0, 0.2, 0.0, 0.0] },
+  size: { start: 1.0, end: 0.2 },
+  source: {
+    type: 'plane',
+    params: { x: 0, y: 0.1, z: 25, width: 2.0, depth: 1.0 } // Near bridge?
+  },
+  rotation: { min: 0, max: 6.28, speedMin: -1, speedMax: 1 },
+  collision: false
+});
+particleSystem.addEmitter(fireEmitter);
+
+// 2. Electrical Sparks (Point Source, near Torus)
+const sparkEmitter = new ParticleEmitter({
+  texture: texSpark,
+  rate: 10,
+  maxParticles: 50,
+  life: { min: 0.5, max: 1.5 },
+  velocity: { speedMin: 5.0, speedMax: 10.0 },
+  gravity: -15.0, // Falling
+  color: { start: [1.0, 1.0, 0.5, 1.0], end: [1.0, 1.0, 0.0, 0.0] },
+  size: { start: 0.4, end: 0.0 },
+  source: {
+    type: 'point',
+    params: { x: 25, y: 2.0, z: 30 } // At Torus location
+  },
+  collision: true
+});
+particleSystem.addEmitter(sparkEmitter);
+
+// 3. Dust (Line Source, "Walking on dusty ground", placed statically for demo)
+const dustEmitter = new ParticleEmitter({
+  texture: texDust,
+  rate: 5,
+  maxParticles: 100,
+  life: { min: 2.0, max: 4.0 },
+  velocity: { speedMin: 0.2, speedMax: 0.5 },
+  gravity: 0.1, // Slight rise
+  color: { start: [0.8, 0.7, 0.6, 0.4], end: [0.8, 0.7, 0.6, 0.0] },
+  size: { start: 0.5, end: 2.0 },
+  source: {
+    type: 'line',
+    params: { x1: -10, y1: 0.2, z1: 30, x2: 10, y2: 0.2, z2: 30 } // A dusty path outside
+  },
+  rotation: { min: 0, max: 6.28, speedMin: 0.5, speedMax: 1.0 },
+  collision: false
+});
+particleSystem.addEmitter(dustEmitter);
+
+
 // -- Player --
 const player = new Player(renderer.gl, texGen);
 player.position.z = 45; // Start way outside
@@ -123,6 +189,9 @@ function loop(time) {
 
   // Update Player
   player.update(dt, move, collidables, actions);
+
+  // Update Particles
+  particleSystem.update(dt, collidables);
 
   // Update Torus Animation
   // 1. Continual Rotation around Y axis (and maybe Z for fun?)
@@ -155,6 +224,9 @@ function loop(time) {
   };
 
   renderer.render(lightPos);
+
+  // Render Particles on top (blended)
+  particleSystem.draw(camera);
 
   // Render Lens Flare on top
   lensFlare.update(lightPos, camera);

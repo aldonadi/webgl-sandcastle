@@ -22,6 +22,12 @@ Implemented physics-based jumping control.
 - **Physics**: Gravity set to -20.0 for snappy feel. Jump velocity ~11.0 to reach 3x player height.
 - **Collision**: Player can land on top of walls, towers, and the keep.
 
+### 5. Particle Effects System
+Added a robust particle system with 3 showcase emitters:
+- **Fire**: Located near the bridge. Emits varying orange flames that drift upward.
+- **Sparks**: Located at the Golden Torus power-up. Emits bright yellow sparks that **bounce** off the ground.
+- **Dust**: A dusty path located outside the walls. Emits slow-moving, rotating dust clouds that fade out.
+
 ## Verification Results
 
 ### Geometry Check
@@ -32,3 +38,8 @@ Implemented physics-based jumping control.
 - **Ground Check**: Verified player can jump when on sand.
 - **Wall Landing**: Verified player can jump onto a wall if close enough (or stair-step up).
 - **Gravity**: Verified player falls back down after jumping.
+
+### Particle Inspection
+- **Fire**: Look for the flame effect near the gate.
+- **Sparks**: Visit the Golden Torus (Right side) to see sparks exploiting and bouncing on the sand.
+- **Dust**: Walk along the dusty line to see the subtle dust trails.

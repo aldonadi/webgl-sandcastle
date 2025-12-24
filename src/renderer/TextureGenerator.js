@@ -163,6 +163,82 @@ export class TextureGenerator {
         return this.uploadTexture(canvas, width, height);
     }
 
+    createFireTexture(width, height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        const cx = width / 2;
+        const cy = height / 2;
+
+        // Base Glow
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, width / 2);
+        grad.addColorStop(0, 'rgba(255, 200, 50, 1.0)'); // Yellow center
+        grad.addColorStop(0.4, 'rgba(255, 100, 0, 0.8)'); // Orange body
+        grad.addColorStop(1, 'rgba(255, 0, 0, 0.0)'); // Fade to transparent
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Add some noise for texture
+        this.applyNoise(ctx, width, height, 0.2);
+
+        return this.uploadTexture(canvas, width, height);
+    }
+
+    createSparkTexture(width, height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        const cx = width / 2;
+        const cy = height / 2;
+
+        ctx.fillStyle = '#00000000'; // Clear
+        ctx.clearRect(0, 0, width, height);
+
+        // Bright Center
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, width / 2);
+        grad.addColorStop(0, 'rgba(255, 255, 200, 1.0)');
+        grad.addColorStop(0.2, 'rgba(255, 255, 0, 0.5)');
+        grad.addColorStop(1, 'rgba(255, 255, 0, 0.0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Star / Cross
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - width / 3, cy);
+        ctx.lineTo(cx + width / 3, cy);
+        ctx.moveTo(cx, cy - height / 3);
+        ctx.lineTo(cx, cy + height / 3);
+        ctx.stroke();
+
+        return this.uploadTexture(canvas, width, height);
+    }
+
+    createDustTexture(width, height) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        const cx = width / 2;
+        const cy = height / 2;
+
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, width / 2);
+        grad.addColorStop(0, 'rgba(200, 190, 180, 0.5)'); // Grayish center
+        grad.addColorStop(0.5, 'rgba(200, 190, 180, 0.2)');
+        grad.addColorStop(1, 'rgba(200, 190, 180, 0.0)');
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+
+        this.applyNoise(ctx, width, height, 0.1);
+
+        return this.uploadTexture(canvas, width, height);
+    }
+
     uploadTexture(canvas, width, height) {
         const texture = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
