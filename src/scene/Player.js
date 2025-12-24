@@ -72,7 +72,7 @@ export class Player {
         this.texture = texGen.uploadTexture(canvas, width, height);
     }
 
-    update(dt, inputVector, sceneObjects) {
+    update(dt, inputVector, sceneObjects, actions) {
         const moveSpeed = 5.0;
         const turnSpeed = 2.0;
 
@@ -98,47 +98,33 @@ export class Player {
             }
         }
 
-        // Gravity
-        const gravity = -10.0;
+        // --- Physics ---
+        const gravity = -20.0; // Stronger gravity for snappier jump
         this.velocity.y += gravity * dt;
 
-        // Apply Velocity to Position (Tentative)
-        // this.position.x += vx * dt;
-        // this.position.z += vz * dt;
-        // this.position.y += this.velocity.y * dt;
+        // Jump
+        // Target Height = 3 * Diameter = 3 * 1.0 = 3.0
+        // v = sqrt(2 * g * h) = sqrt(2 * 20 * 3) = sqrt(120) ~ 11
+        if (actions && actions.jump && this.isGrounded) {
+            this.velocity.y = 11.0;
+            this.isGrounded = false;
+        }
 
-        // --- Velocity Projection Method ---
-        // 1. Calculate Desired Velocity (Input + Gravity)
-        // 2. Iteratively Resolving Collisions on the Velocity Vector
-        // 3. Integrate final velocity
-
-        // Current Velocity State
+        // Integration
         let currentVx = vx;
         let currentVy = this.velocity.y;
         let currentVz = vz;
 
-        // We still need to check collisions at the *future* position to know if we hit something.
-        // But instead of moving inside and pushing back, we:
-        // Move -> Detect -> Subtract Velocity -> Re-move
-
-        // Actually, for "Glide", we usually do:
-        // Position += Velocity * dt
-        // Check Collision
-        // If Hit:
-        //   Push out (Minimum Translation Distance) to resolve overlap (essential for robustness)
-        //   Project residual velocity against Normal so we don't push back in next frame.
-        //   V = V - (V . N) * N
-
-        // Step 1: Integrate
         this.position.x += currentVx * dt;
         this.position.y += currentVy * dt;
         this.position.z += currentVz * dt;
 
-        // Floor Safety
+        // Floor Safety (Beach Level)
+        this.isGrounded = false; // Reset grounded state
         if (this.position.y < this.radius) {
             this.position.y = this.radius;
-            currentVy = 0;
-            this.velocity.y = 0;
+            if (this.velocity.y < 0) this.velocity.y = 0;
+            this.isGrounded = true;
         }
 
         if (sceneObjects) {
@@ -156,36 +142,28 @@ export class Player {
                         const nz = hit.normal.z;
 
                         // 1. Resolve Penetration (Push Out)
-                        // Slightly bias push to avoid precision stickiness?
                         const pushFactor = 1.001;
                         this.position.x += nx * hit.depth * pushFactor;
                         this.position.y += ny * hit.depth * pushFactor;
                         this.position.z += nz * hit.depth * pushFactor;
 
-                        // 2. Velocity Projection (Glide)
-                        // Velocity = Velocity - (Velocity . Normal) * Normal
-                        // Do this for both Input Velocity (Motion) and Physics Velocity (Gravity/Jump)
-
-                        // Dot Product
+                        // 2. Velocity Projection
                         const vDotN = currentVx * nx + currentVy * ny + currentVz * nz;
 
-                        // Only project if we are moving INTO the wall (vDotN < 0)
                         if (vDotN < 0) {
                             currentVx -= vDotN * nx;
                             currentVy -= vDotN * ny;
                             currentVz -= vDotN * nz;
 
-                            // Friction? (Optional)
-                            // currentVx *= 0.9;
-                            // currentVz *= 0.9;
-                        }
-
-                        // Step Up Logic?
-                        // If we are grounded (ny > 0.7), we are good.
-                        // If we are hitting a wall (ny < 0.1), we glide.
-                        if (ny > 0.7) {
-                            this.velocity.y = 0;
-                            currentVy = 0;
+                            // 3. Grounded Check
+                            // If we hit something flat enough, we are grounded
+                            if (ny > 0.7) {
+                                this.isGrounded = true;
+                                if (this.velocity.y < 0) this.velocity.y = 0; // Stop falling
+                            } else if (ny < -0.7) {
+                                // Hit ceiling
+                                if (this.velocity.y > 0) this.velocity.y = 0;
+                            }
                         }
                     }
                 }
@@ -193,9 +171,9 @@ export class Player {
             }
         }
 
-        // Update stored gravity velocity for next frame (using the projected result)
-        // This ensures if we slide down a slope, we don't accumulate infinite gravity?
-        this.velocity.y = currentVy;
+        // Persist vertical velocity state (gravity)
+        // If we are grounded, velocity.y was set to 0 above.
+        // If we are mid-air, it continues.
 
         // Animation Updates
         this.breathingTime += dt;

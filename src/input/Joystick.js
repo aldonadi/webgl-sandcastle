@@ -15,6 +15,11 @@ export class Joystick {
         // Config
         this.radius = 60; // Half of zone width
 
+        // Tap Detection
+        this.tapStartTime = 0;
+        this.tapStartPos = { x: 0, y: 0 };
+        this.tapped = false;
+
         this.bindEvents();
     }
 
@@ -46,6 +51,10 @@ export class Joystick {
         this.touchId = touch.identifier;
         this.active = true;
         this.updateRect();
+
+        this.tapStartTime = Date.now();
+        this.tapStartPos = { x: touch.clientX, y: touch.clientY };
+
         this.handleInput(touch.clientX, touch.clientY);
     }
 
@@ -64,6 +73,17 @@ export class Joystick {
         if (!this.active) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             if (e.changedTouches[i].identifier === this.touchId) {
+                // Check if tap
+                const dt = Date.now() - this.tapStartTime;
+                const touch = e.changedTouches[i];
+                const dx = touch.clientX - this.tapStartPos.x;
+                const dy = touch.clientY - this.tapStartPos.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dt < 250 && dist < 10) {
+                    this.tapped = true;
+                }
+
                 this.reset();
                 break;
             }
@@ -76,6 +96,10 @@ export class Joystick {
         e.preventDefault();
         this.active = true;
         this.updateRect();
+
+        this.tapStartTime = Date.now();
+        this.tapStartPos = { x: e.clientX, y: e.clientY };
+
         this.handleInput(e.clientX, e.clientY);
     }
 
@@ -88,6 +112,16 @@ export class Joystick {
 
     onMouseUp(e) {
         if (this.active) {
+            // Check if tap
+            const dt = Date.now() - this.tapStartTime;
+            const dx = e.clientX - this.tapStartPos.x;
+            const dy = e.clientY - this.tapStartPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dt < 250 && dist < 10) {
+                this.tapped = true;
+            }
+
             this.reset();
         }
     }
@@ -122,5 +156,13 @@ export class Joystick {
 
     getVector() {
         return this.input;
+    }
+
+    hasTapped() {
+        if (this.tapped) {
+            this.tapped = false;
+            return true;
+        }
+        return false;
     }
 }

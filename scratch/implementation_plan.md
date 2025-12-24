@@ -1,38 +1,46 @@
-# Implementation Plan - Epic Sandcastle Expansion
+# Implementation Plan - Jump Mechanics
 
 ## Goal Description
-Refactor the castle construction to use the dedicated `CastleBuilder` class and expand the castle to be much larger, multilevel, with long walls, parapets, and at least 6 turrets.
+Implement player jumping by tapping the look joystick. The jump should be physics-based, allowing for directional control and landing on surfaces.
 
 ## User Review Required
-> [!NOTE]
-> I will be removing the old inline castle construction code from `main.js`. If there were any specific tweaks in there you liked, they might be lost, but `CastleBuilder` seems superior.
+None.
 
 ## Proposed Changes
 
-### Scene Construction
-#### [MODIFY] [main.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/main.js)
-- Import `CastleBuilder`.
-- Remove inline castle generation (Keep, Towers, Walls, Bridge).
-- Instantiate `CastleBuilder` and call `build()`.
-- Adjust player spawn position to be further back to accommodate the larger castle.
+### Input Handling
+#### [MODIFY] [Joystick.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/input/Joystick.js)
+- Add tap detection logic:
+    - Record `startTime` and `startPos` on input start.
+    - Check for short duration (< 200ms) and minimal movement (< 10px) on input end.
+    - Flag `wasTapped` as true if conditions are met.
+    - Add `hasTapped()` method that consumes the flag (returns true once then resets).
 
-### Castle Generation
-#### [MODIFY] [CastleBuilder.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/scene/CastleBuilder.js)
-- Update `config` defaults to scale up dimensions (40x40 -> 60x60 or larger).
-- Add `createParapets` method to add crenellations on top of walls.
-- Ensure at least 6 turrets are created (currently 4 corner + 2 gatehouse = 6, will add intermediate towers on long walls).
-- Refine `buildKeep` to be more massive and multilevel.
+#### [MODIFY] [InputManager.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/input/InputManager.js)
+- Add `getActions()` method:
+    - Returns `{ jump: boolean }`.
+    - Checks `this.rightStick.hasTapped()`.
+
+### Player Physics
+#### [MODIFY] [Player.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/scene/Player.js)
+- Update `update()` to accept `actions` object.
+- Implement Jump Logic:
+    - Determine `isGrounded` status (touching floor `y <= radius` OR standing on object with `ny > 0.7`).
+    - If `actions.jump` is true AND `isGrounded`:
+        - Set `velocity.y` to calculated jump speed (`sqrt(2 * g * h)`).
+    - Target Height: `3 * diameter` = `3.0` units (since r=0.5, d=1.0).
+- Refine Collision Logic:
+    - Ensure `velocity.y` is reset when hitting ceiling or landing.
+    - Allow jumping whilst moving (velocity inheritance is implicit in position update).
+
+### Main Loop
+#### [MODIFY] [main.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/main.js)
+- Pass `actions` from `InputManager` to `Player.update`.
 
 ## Verification Plan
 
-### Automated Tests
-- None available for visual output.
-
 ### Manual Verification
-- Run the app in the browser.
-- Visual inspection:
-    - Check for a much larger castle structure.
-    - Count turrets (should be >= 6).
-    - Verify parapets on walls.
-    - inner Keep should be multilevel.
-    - Frame rate should remain acceptable.
+- **Tap to Jump**: Tap right joystick/right side of screen. Player should launch up.
+- **Height**: Visually compare jump height to player size (should be roughly 3x height).
+- **Landing**: Jump onto castle wall or blocks. Player should land and stay.
+- **Direction**: Run and jump. Player should arc through air.

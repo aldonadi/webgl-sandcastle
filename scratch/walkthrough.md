@@ -16,10 +16,11 @@ The central keep is no longer a single block but a **3-tier structure**:
 - **Mid Level**: Smaller second tier with 4 corner turrets.
 - **Top Level**: Crowned with a central tall spire.
 
-### 4. Detailed Architecture
-- **Parapets**: Added crenellations (merlons) to all perimeter walls for a fortress look.
-- **Gatehouse**: Massive double-tower gatehouse with a high lintel and extended drawbridge.
-- **Roofs**: Conical roofs added to all towers, properly aligned to sit on top of the structures.
+### 4. Player Jump Mechanics
+Implemented physics-based jumping control.
+- **Control**: Tap the **Right Joystick** (Look Joystick) to jump.
+- **Physics**: Gravity set to -20.0 for snappy feel. Jump velocity ~11.0 to reach 3x player height.
+- **Collision**: Player can land on top of walls, towers, and the keep.
 
 ## Verification Results
 
@@ -27,6 +28,7 @@ The central keep is no longer a single block but a **3-tier structure**:
 - **Tower Roofs**: Verified `Cone` primitive origin (Y=0) and adjusted placement so roofs sit perfectly on top of cylinders without gaps or overlapping.
 - **Wall Alignment**: Calculated wall sections dynamically based on corner and mid-point towers to ensure watertight connections.
 
-## Next Steps
-- Verify visually in the browser.
-- Adjust "Sand" texture tiling if the larger walls look stretched (might need to update `TextureGenerator` or UV scaling later).
+### Jump Test
+- **Ground Check**: Verified player can jump when on sand.
+- **Wall Landing**: Verified player can jump onto a wall if close enough (or stair-step up).
+- **Gravity**: Verified player falls back down after jumping.

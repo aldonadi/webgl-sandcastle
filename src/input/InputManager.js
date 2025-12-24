@@ -13,4 +13,10 @@ export class InputManager {
     getLookVector() {
         return this.rightStick.getVector();
     }
+
+    getActions() {
+        return {
+            jump: this.rightStick.hasTapped()
+        };
+    }
 }

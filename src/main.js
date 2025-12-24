@@ -117,11 +117,12 @@ function loop(time) {
   // Update Input
   const move = input.getMoveVector(); // {x, y}
   const look = input.getLookVector(); // {x, y}
+  const actions = input.getActions(); // {jump}
 
   const isPlayerMoving = (Math.abs(move.x) > 0.01 || Math.abs(move.y) > 0.01);
 
   // Update Player
-  player.update(dt, move, collidables);
+  player.update(dt, move, collidables, actions);
 
   // Update Torus Animation
   // 1. Continual Rotation around Y axis (and maybe Z for fun?)
