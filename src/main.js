@@ -158,10 +158,7 @@ function loop(time) {
   const isPlayerMoving = (Math.abs(move.x) > 0.01 || Math.abs(move.y) > 0.01);
 
   // Update Player
-  // Pass camera yaw so player moves relative to camera view
-  // Camera yaw is in degrees, convert to radians
-  const camYawRad = camera.yaw * Math.PI / 180;
-  player.update(dt, move, camYawRad);
+  player.update(dt, move);
 
   // Resolve Collision
   player.resolveCollision(collidables);

@@ -69,60 +69,71 @@ export class Player {
         this.texture = texGen.uploadTexture(canvas, width, height);
     }
 
-    update(dt, inputVector, cameraYaw) {
-        const speed = 5.0; // Units per second
+    update(dt, inputVector) {
+        const moveSpeed = 5.0;
+        const turnSpeed = 2.0;
 
-        // Input Vector is (x: left/right, y: forward/back) from joystick
-        // We need to convert this to world space based on camera angle
-        if (Math.abs(inputVector.x) > 0.01 || Math.abs(inputVector.y) > 0.01) {
+        // Tank Controls:
+        // Input X: Turn Left/Right (Yaw)
+        // Input Y: Move Forward/Back (relative to current rotation)
 
-            // Calculate movement direction relative to camera
-            // CameraYaw is in degrees usually? No check main.js, it says camera.yaw = -90 (degrees).
-            // But let's assume we get radians or convert.
-            // Let's assume we pass in radians for easier math here.
+        if (Math.abs(inputVector.x) > 0.01) {
+            // Invert x because usually Right (positive) input means Turn Right (negative Yaw in standard RH system if Z is forward?)
+            // Let's test: 
+            // -Z is Forward. 
+            // Rotation +: Turns Left? or Right?
+            // Standard: +Y axis rotation.
+            // +Yaw -> rotates counter-clockwise (Left).
+            // So +InputX (Right) should allow -Yaw.
+            this.rotation -= inputVector.x * turnSpeed * dt;
+        }
 
-            const yawRad = cameraYaw;
+        let visualsRotation = this.rotation;
 
-            // Forward is -Z in view space usually?
-            // If camera looks down -Z, then Forward input (y < 0) should move -Z.
-            // Actually Joystick usually: Y is up/down (-1 to 1). If Up is -1, then we want to move Forward.
+        if (Math.abs(inputVector.y) > 0.01) {
+            // Up (-1) -> Move Forward (-Z relative to rotation).
+            // Down (1) -> Move Backward (+Z relative to rotation).
 
-            const fwdX = -Math.sin(yawRad);
-            const fwdZ = -Math.cos(yawRad);
+            // Forward Vector from Rotation
+            // Rot 0 -> +Z? (from atan2(0,1)).
+            // Let's stick to: Rot 0 is +Z.
+            // Forward (+Z direction) = (sin(rot), 0, cos(rot)).
 
-            const rightX = -Math.sin(yawRad + Math.PI / 2);
-            const rightZ = -Math.cos(yawRad + Math.PI / 2);
+            // Move Delta: input.y * speed
+            // If input.y is -1 (Up), we want to move "Forward" (which is usually into screen, -Z?)
+            // Camera is behind (-Z direction).
+            // If Rot=0 (facing Z), Forward means +Z.
+            // If input.y = -1 (Up stick). We want to move +Z?
+            // Usually Up stick = Move away from camera.
+            // If Camera looks at +Z (from -Z), "away" is +Z.
+            // So Up (-1) -> +Z move.
+            // speed * (-input.y).
 
-            // Input: x (left/right), y (forward/back)
-            // If y is -1 (forward), we want positive forward movement? 
-            // Let's assume Stick Y: -1 is Forward (Up on screen)
+            const fwdSpeed = -inputVector.y * moveSpeed * dt;
 
-            const dx = (inputVector.x * rightX) + (inputVector.y * fwdX); // Check signs
-            const dz = (inputVector.x * rightZ) + (inputVector.y * fwdZ);
+            // Calculate forward vector based on current rotation
+            // Assuming Rot 0 faces +Z
+            const dx = Math.sin(this.rotation);
+            const dz = Math.cos(this.rotation);
 
-            // Normalize direction if magnitude > 1 (to prevent faster diagonal)
-            // But input stick usually handles this circle clamping or we just use it raw for analog control.
+            this.position.x += dx * fwdSpeed;
+            this.position.z += dz * fwdSpeed;
 
-            this.position.x += dx * speed * dt;
-            this.position.z += dz * speed * dt;
-
-            // Rotate player to face movement?
-            if (Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001) {
-                this.rotation = Math.atan2(dx, dz);
+            // Visual Rotation Logic
+            // If moving backward (input.y > 0), face camera (180 turn)
+            if (inputVector.y > 0) {
+                visualsRotation = this.rotation + Math.PI;
             }
         }
 
         // Simple Gravity / Floor clamp
-        // We will do collision properly later, for now clamp to y=radius
         this.position.y = this.radius;
 
-        // Update Mesh
+        // Update Mesh Position
         this.mesh.setPosition(this.position.x, this.position.y, this.position.z);
 
-        // Ball rolling effect? 
-        // A bit complex because we need axis of rotation perpendicular to movement.
-        // Let's just slide with fixed orientation (like a character) or rotate Y to face dir.
-        this.mesh.setRotation(0, this.rotation * 180 / Math.PI, 0);
+        // Update Mesh Rotation (Visible)
+        this.mesh.setRotation(0, visualsRotation * 180 / Math.PI, 0);
     }
 
     resolveCollision(sceneObjects) {
