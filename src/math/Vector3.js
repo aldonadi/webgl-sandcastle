@@ -48,6 +48,10 @@ export class Vector3 {
         return this;
     }
 
+    dot(v) {
+        return this.elements[0] * v.elements[0] + this.elements[1] * v.elements[1] + this.elements[2] * v.elements[2];
+    }
+
     add(v) {
         this.elements[0] += v.elements[0];
         this.elements[1] += v.elements[1];

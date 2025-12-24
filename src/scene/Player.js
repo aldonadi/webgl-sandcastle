@@ -103,20 +103,45 @@ export class Player {
         this.velocity.y += gravity * dt;
 
         // Apply Velocity to Position (Tentative)
-        this.position.x += vx * dt;
-        this.position.z += vz * dt;
-        this.position.y += this.velocity.y * dt;
+        // this.position.x += vx * dt;
+        // this.position.z += vz * dt;
+        // this.position.y += this.velocity.y * dt;
 
-        // Floor Floor (Simple Ground Plane at 0)
-        // We handle objects separately, but let's keep a safety net for "sea level"
+        // --- Velocity Projection Method ---
+        // 1. Calculate Desired Velocity (Input + Gravity)
+        // 2. Iteratively Resolving Collisions on the Velocity Vector
+        // 3. Integrate final velocity
+
+        // Current Velocity State
+        let currentVx = vx;
+        let currentVy = this.velocity.y;
+        let currentVz = vz;
+
+        // We still need to check collisions at the *future* position to know if we hit something.
+        // But instead of moving inside and pushing back, we:
+        // Move -> Detect -> Subtract Velocity -> Re-move
+
+        // Actually, for "Glide", we usually do:
+        // Position += Velocity * dt
+        // Check Collision
+        // If Hit:
+        //   Push out (Minimum Translation Distance) to resolve overlap (essential for robustness)
+        //   Project residual velocity against Normal so we don't push back in next frame.
+        //   V = V - (V . N) * N
+
+        // Step 1: Integrate
+        this.position.x += currentVx * dt;
+        this.position.y += currentVy * dt;
+        this.position.z += currentVz * dt;
+
+        // Floor Safety
         if (this.position.y < this.radius) {
             this.position.y = this.radius;
+            currentVy = 0;
             this.velocity.y = 0;
         }
 
-        // Robust Collision & Slide & Step Up
         if (sceneObjects) {
-            // Need multiple iterations for corners?
             for (let i = 0; i < 3; i++) {
                 let colFound = false;
                 for (const obj of sceneObjects) {
@@ -126,69 +151,51 @@ export class Player {
                     if (hit) {
                         colFound = true;
 
-                        // hit: { normal: Vector3, depth: float, localY: float }
                         const nx = hit.normal.x;
                         const ny = hit.normal.y;
                         const nz = hit.normal.z;
 
-                        // Analyze Normal
-                        // If normal is mostly Up (> 0.7), it's a floor/slope we can walk on.
-                        // If normal is horizontal, it's a wall.
+                        // 1. Resolve Penetration (Push Out)
+                        // Slightly bias push to avoid precision stickiness?
+                        const pushFactor = 1.001;
+                        this.position.x += nx * hit.depth * pushFactor;
+                        this.position.y += ny * hit.depth * pushFactor;
+                        this.position.z += nz * hit.depth * pushFactor;
 
-                        // "Step Up" Logic:
-                        // If obstacle is low, we pop up?
-                        // Or if we hit a wall but the top is close?
-                        // "hit.localY" might tell us where we are relative to object vertical.
-                        // Or just checking: If Wall, can we "step" Y up to clear it?
-                        // Max step height = 0.5?
+                        // 2. Velocity Projection (Glide)
+                        // Velocity = Velocity - (Velocity . Normal) * Normal
+                        // Do this for both Input Velocity (Motion) and Physics Velocity (Gravity/Jump)
 
+                        // Dot Product
+                        const vDotN = currentVx * nx + currentVy * ny + currentVz * nz;
+
+                        // Only project if we are moving INTO the wall (vDotN < 0)
+                        if (vDotN < 0) {
+                            currentVx -= vDotN * nx;
+                            currentVy -= vDotN * ny;
+                            currentVz -= vDotN * nz;
+
+                            // Friction? (Optional)
+                            // currentVx *= 0.9;
+                            // currentVz *= 0.9;
+                        }
+
+                        // Step Up Logic?
+                        // If we are grounded (ny > 0.7), we are good.
+                        // If we are hitting a wall (ny < 0.1), we glide.
                         if (ny > 0.7) {
-                            // Floor / Slope
-                            // Push out
-                            this.position.x += nx * hit.depth;
-                            this.position.y += ny * hit.depth;
-                            this.position.z += nz * hit.depth;
-                            this.velocity.y = 0; // Grounded
-                        } else {
-                            // Wall
-                            // Standard Slide
-                            this.position.x += nx * hit.depth;
-                            this.position.y += ny * hit.depth;
-                            this.position.z += nz * hit.depth;
-
-                            // "Step Up" check
-                            // If we raise Y by StepHeight, do we still collide?
-                            const stepHeight = 0.6; // Slightly more than radius
-
-                            // To actually implement step up properly:
-                            // We need to know if the spot ABOVe the collision point is free.
-                            // Simple hack: If wall collision, try pushing UP instead of back, 
-                            // IF the obstacle height is low.
-                            // How to know obstacle height? 
-                            // obj.scale.y?
-                            // If we are colliding with a "low" object (like a stair step), 
-                            // maybe we should just lift the player.
-
-                            // Let's check "how deep" the object is relative to our feet.
-                            // Or just: If valid floor exists at P + stepHeight, teleport up?
-                            // Too complex for now without full physics.
-
-                            // Simple "Push and Slide"
-                            // Cancel velocity into wall
-                            const dot = vx * nx + vz * nz; // v . n (XZ only)
-                            // Remove normal component
-                            // v = v - n * dot
-                            // vx -= nx * dot;
-                            // vz -= nz * dot;
-
-                            // Actually, simply pushing out (mtd) usually enough for "Slide" if done iteratively
-                            // alongside Position updates.
+                            this.velocity.y = 0;
+                            currentVy = 0;
                         }
                     }
                 }
                 if (!colFound) break;
             }
         }
+
+        // Update stored gravity velocity for next frame (using the projected result)
+        // This ensures if we slide down a slope, we don't accumulate infinite gravity?
+        this.velocity.y = currentVy;
 
         // Animation Updates
         this.breathingTime += dt;
