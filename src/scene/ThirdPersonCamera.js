@@ -79,11 +79,11 @@ export class ThirdPersonCamera extends Camera {
 
         // Smoothly track player position?
         // direct copy for now
-        this.targetPostion.set(player.position.x, player.position.y + this.offsetUp, player.position.z);
+        this.targetPosition.set(player.position.x, player.position.y + this.offsetUp, player.position.z);
 
-        this.position.x = this.targetPostion.x - direction.x * this.distance + right.x * this.offsetRight;
-        this.position.y = this.targetPostion.y - direction.y * this.distance + right.y * this.offsetRight;
-        this.position.z = this.targetPostion.z - direction.z * this.distance + right.z * this.offsetRight;
+        this.position.x = this.targetPosition.x - direction.x * this.distance + right.x * this.offsetRight;
+        this.position.y = this.targetPosition.y - direction.y * this.distance + right.y * this.offsetRight;
+        this.position.z = this.targetPosition.z - direction.z * this.distance + right.z * this.offsetRight;
 
         // Look At Target (with offset offset? No, look at target point)
         // We essentially orbit 'targetPosition'.
@@ -93,7 +93,7 @@ export class ThirdPersonCamera extends Camera {
         // Update View Matrix
         this.viewMatrix.setLookAt(
             this.position.x, this.position.y, this.position.z,
-            this.targetPostion.x, this.targetPostion.y, this.targetPostion.z,
+            this.targetPosition.x, this.targetPosition.y, this.targetPosition.z,
             0, 1, 0
         );
     }
