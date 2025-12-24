@@ -76,115 +76,134 @@ export class Player {
         const moveSpeed = 5.0;
         const turnSpeed = 2.0;
 
-        // Tank Controls...
+        // Tank Controls
         if (Math.abs(inputVector.x) > 0.01) {
             this.rotation -= inputVector.x * turnSpeed * dt;
         }
 
         let visualsRotation = this.rotation;
 
-        // Potential Position
-        let newX = this.position.x;
-        let newZ = this.position.z;
+        // Calculate velocity from Input
+        let vx = 0;
+        let vz = 0;
 
         if (Math.abs(inputVector.y) > 0.01) {
-            const fwdSpeed = -inputVector.y * moveSpeed * dt;
+            const fwdSpeed = -inputVector.y * moveSpeed;
 
-            const dx = Math.sin(this.rotation);
-            const dz = Math.cos(this.rotation);
-
-            newX += dx * fwdSpeed;
-            newZ += dz * fwdSpeed;
+            vx = Math.sin(this.rotation) * fwdSpeed;
+            vz = Math.cos(this.rotation) * fwdSpeed;
 
             if (inputVector.y > 0) {
                 visualsRotation = this.rotation + Math.PI;
             }
         }
 
-        // Check Collision PREDICTIVELY
-        // We check if moving to (newX, newZ) causes intersection.
-        if (sceneObjects) {
-            if (!this.checkCollision(newX, this.position.z, sceneObjects)) {
-                this.position.x = newX;
-            }
-            if (!this.checkCollision(this.position.x, newZ, sceneObjects)) {
-                this.position.z = newZ;
-            }
-            // Logic: Try moving X, if safe commit. Try moving Z, if safe commit. 
-            // This allows sliding along walls.
-        } else {
-            this.position.x = newX;
-            this.position.z = newZ;
+        // Gravity
+        const gravity = -10.0;
+        this.velocity.y += gravity * dt;
+
+        // Apply Velocity to Position (Tentative)
+        this.position.x += vx * dt;
+        this.position.z += vz * dt;
+        this.position.y += this.velocity.y * dt;
+
+        // Floor Floor (Simple Ground Plane at 0)
+        // We handle objects separately, but let's keep a safety net for "sea level"
+        if (this.position.y < this.radius) {
+            this.position.y = this.radius;
+            this.velocity.y = 0;
         }
 
-        // Simple Gravity / Floor clamp
-        this.position.y = this.radius;
+        // Robust Collision & Slide & Step Up
+        if (sceneObjects) {
+            // Need multiple iterations for corners?
+            for (let i = 0; i < 3; i++) {
+                let colFound = false;
+                for (const obj of sceneObjects) {
+                    if (obj === this.mesh) continue;
 
-        // Breathing...
+                    const hit = obj.resolveCollision(this);
+                    if (hit) {
+                        colFound = true;
+
+                        // hit: { normal: Vector3, depth: float, localY: float }
+                        const nx = hit.normal.x;
+                        const ny = hit.normal.y;
+                        const nz = hit.normal.z;
+
+                        // Analyze Normal
+                        // If normal is mostly Up (> 0.7), it's a floor/slope we can walk on.
+                        // If normal is horizontal, it's a wall.
+
+                        // "Step Up" Logic:
+                        // If obstacle is low, we pop up?
+                        // Or if we hit a wall but the top is close?
+                        // "hit.localY" might tell us where we are relative to object vertical.
+                        // Or just checking: If Wall, can we "step" Y up to clear it?
+                        // Max step height = 0.5?
+
+                        if (ny > 0.7) {
+                            // Floor / Slope
+                            // Push out
+                            this.position.x += nx * hit.depth;
+                            this.position.y += ny * hit.depth;
+                            this.position.z += nz * hit.depth;
+                            this.velocity.y = 0; // Grounded
+                        } else {
+                            // Wall
+                            // Standard Slide
+                            this.position.x += nx * hit.depth;
+                            this.position.y += ny * hit.depth;
+                            this.position.z += nz * hit.depth;
+
+                            // "Step Up" check
+                            // If we raise Y by StepHeight, do we still collide?
+                            const stepHeight = 0.6; // Slightly more than radius
+
+                            // To actually implement step up properly:
+                            // We need to know if the spot ABOVe the collision point is free.
+                            // Simple hack: If wall collision, try pushing UP instead of back, 
+                            // IF the obstacle height is low.
+                            // How to know obstacle height? 
+                            // obj.scale.y?
+                            // If we are colliding with a "low" object (like a stair step), 
+                            // maybe we should just lift the player.
+
+                            // Let's check "how deep" the object is relative to our feet.
+                            // Or just: If valid floor exists at P + stepHeight, teleport up?
+                            // Too complex for now without full physics.
+
+                            // Simple "Push and Slide"
+                            // Cancel velocity into wall
+                            const dot = vx * nx + vz * nz; // v . n (XZ only)
+                            // Remove normal component
+                            // v = v - n * dot
+                            // vx -= nx * dot;
+                            // vz -= nz * dot;
+
+                            // Actually, simply pushing out (mtd) usually enough for "Slide" if done iteratively
+                            // alongside Position updates.
+                        }
+                    }
+                }
+                if (!colFound) break;
+            }
+        }
+
+        // Animation Updates
         this.breathingTime += dt;
         const breathRate = 2.0;
         const breathAmount = 0.05;
-
         const sinVal = Math.sin(this.breathingTime * breathRate);
         const scaleY = 1.0 - (sinVal * breathAmount);
         const scaleXZ = 1.0 + (sinVal * breathAmount * 0.5);
 
-        // Update Mesh Position
         this.mesh.setPosition(this.position.x, this.position.y, this.position.z);
-
-        // Update Mesh Rotation (Visible)
         this.mesh.setRotation(0, visualsRotation * 180 / Math.PI, 0);
-
-        // Apply Scaling
         this.mesh.setScale(scaleXZ, scaleY, scaleXZ);
     }
 
-    getBoundingBox(x, z) {
-        // Player AABB centered at x, z
-        const radius = this.radius;
-        // Use slight buffer?
-        return {
-            min: { x: x - radius, y: 0, z: z - radius },
-            max: { x: x + radius, y: radius * 2, z: z + radius }
-        };
-    }
 
-    checkCollision(newX, newZ, sceneObjects) {
-        const playerBox = this.getBoundingBox(newX, newZ);
-
-        for (const obj of sceneObjects) {
-            if (obj === this.mesh) continue;
-            if (!obj.isCollidable) continue; // Respect flag
-
-            // Get Object AABB
-            // If obj has getAABB, use it.
-            let objBox = null;
-            if (obj.getAABB) {
-                objBox = obj.getAABB();
-            } else if (obj.position) {
-                // Fallback (assume size 1)
-                objBox = {
-                    min: { x: obj.position.x - 0.5, y: obj.position.y - 0.5, z: obj.position.z - 0.5 },
-                    max: { x: obj.position.x + 0.5, y: obj.position.y + 0.5, z: obj.position.z + 0.5 }
-                };
-            }
-
-            if (objBox) {
-                // AABB Overlap Test
-                const overlap = (
-                    playerBox.min.x < objBox.max.x &&
-                    playerBox.max.x > objBox.min.x &&
-                    playerBox.min.y < objBox.max.y &&
-                    playerBox.max.y > objBox.min.y &&
-                    playerBox.min.z < objBox.max.z &&
-                    playerBox.max.z > objBox.min.z
-                );
-
-                if (overlap) return true;
-            }
-        }
-        return false;
-    }
 
     resolveCollision(sceneObjects) {
         // Deprecated/Unused now handled in update

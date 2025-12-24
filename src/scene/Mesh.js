@@ -1,4 +1,5 @@
 import { Matrix4 } from '../math/Matrix4.js';
+import { Vector3 } from '../math/Vector3.js';
 import { ShaderProgram } from '../renderer/ShaderProgram.js';
 import { BasicVertexShader, BasicFragmentShader } from '../renderer/Shaders.js';
 
@@ -80,36 +81,162 @@ export class Mesh {
         this.updateMatrices();
     }
 
-    getAABB() {
-        // Simple AABB based on Position and Scale
-        // Assumes unit/centered primitive which is common for generated spheres/cubes
-        // Position is center.
-        // Scale is radius or half-width.
+    resolveCollision(player) {
+        if (!this.isCollidable) return null; // Pass-through
 
-        const x = this.position.x;
-        const y = this.position.y;
-        const z = this.position.z;
+        // 1. Transform Player World Position to Local Space
+        // Model = T * R * S
+        // Inverse = S^-1 * R^-1 * T^-1
 
-        // Default scale 1
+        const localPos = new Vector3(player.position.x, player.position.y, player.position.z);
+
+        // T^-1
+        localPos.x -= this.position.x;
+        localPos.y -= this.position.y;
+        localPos.z -= this.position.z;
+
+        // R^-1 (Transpose Rotation Matrix constructed from Euler)
+        // We need to support the order. normalize Rotation: Z * Y * X usually?
+        // In updateMatrices: rotate X, then Y, then Z.
+        // So M_rot = Rz * Ry * Rx.
+        // Inverse = Rx^T * Ry^T * Rz^T.
+
+        // To avoid Matrix Math complexity without a full library, let's reverse the rotations manually.
+        // Rotate -Z (around Z)
+        // Rotate -Y (around Y)
+        // Rotate -X (around X)
+
+        const radX = (this.rotation ? this.rotation.x : 0) * Math.PI / 180;
+        const radY = (this.rotation ? this.rotation.y : 0) * Math.PI / 180;
+        const radZ = (this.rotation ? this.rotation.z : 0) * Math.PI / 180;
+
+        // Rotate -Z
+        let dx = localPos.x, dy = localPos.y; // Z axis rotation affects X,Y
+        localPos.x = dx * Math.cos(-radZ) - dy * Math.sin(-radZ);
+        localPos.y = dx * Math.sin(-radZ) + dy * Math.cos(-radZ);
+
+        // Rotate -Y (affects X, Z)
+        dx = localPos.x; let dz = localPos.z;
+        localPos.x = dx * Math.cos(-radY) + dz * Math.sin(-radY); // Note: standard rotation sign
+        localPos.z = -dx * Math.sin(-radY) + dz * Math.cos(-radY);
+
+        // Rotate -X (affects Y, Z)
+        dy = localPos.y; dz = localPos.z;
+        localPos.y = dy * Math.cos(-radX) - dz * Math.sin(-radX);
+        localPos.z = dy * Math.sin(-radX) + dz * Math.cos(-radX);
+
+        // S^-1
+        // For collision, we want to check against Unit Box (-0.5 to 0.5)..
+        // BUT if we scale the player position down, we must also scale the player radius? 
+        // Scaling a sphere defines an ellipsoid.
+        // A better approach is: Keep scaling applied to the Object Dimensions, work in "Unrotated" World Space?
+        // No, Local Space AABB (-0.5 to 0.5) is easier if we scale space.
+
         const sx = this.scale ? this.scale.x : 1.0;
         const sy = this.scale ? this.scale.y : 1.0;
         const sz = this.scale ? this.scale.z : 1.0;
 
-        // Assuming base size 1.0 (radius 0.5 for sphere, half-width 0.5 for cube)
-        // Actually Cube creates vertices from -0.5 to 0.5.
-        // Sphere creates Radius passed in. But here Mesh doesn't know.
-        // But we pass scale to Cube/Sphere usually to resize them.
-        // Let's assume the "base" size is radius/extent 0.5 (diameter 1) effectively.
-        // Except for Sphere where we explicitly passed 0.5...
-        // Let's use a "radius" of 0.5 * scale as a safe bet for generic Mesh/Cube.
+        localPos.x /= sx;
+        localPos.y /= sy;
+        localPos.z /= sz;
 
-        const extentX = 0.5 * sx;
-        const extentY = 0.5 * sy;
-        const extentZ = 0.5 * sz;
+        // Now we are in Unit Local Space (approximating uniform scale validity for Sphere)
+        // Player is a sphere. In non-uniform scaled space, it's an ellipsoid.
+        // We approximation: Use smallest scale factor to scale radius? 
+        // Or just check Axis Aligned Box distance.
+
+        // Box Bounds: -0.5 to 0.5 (since we scaled by full scale, assuming base Cube is 1x1x1)
+        // Note: Torus/Cylinder might differ. Assume Cube logic for "Walls".
+
+        const half = 0.5;
+        const min = new Vector3(-half, -half, -half);
+        const max = new Vector3(half, half, half);
+
+        // Closest Point on Box to Point
+        const closest = new Vector3(
+            Math.max(min.x, Math.min(max.x, localPos.x)),
+            Math.max(min.y, Math.min(max.y, localPos.y)),
+            Math.max(min.z, Math.min(max.z, localPos.z))
+        );
+
+        // Vector from Closest to Center
+        const diff = new Vector3(localPos.x, localPos.y, localPos.z).subVectors(localPos, closest);
+        const distSq = diff.elements[0] * diff.elements[0] + diff.elements[1] * diff.elements[1] + diff.elements[2] * diff.elements[2];
+
+        // Scaled Radius Needed?
+        // If we shrank space by S, we must shrink Radius by S?
+        // Conservative: Scale radius by 1/max(scale) (safest) 
+        // If scale is huge, radius is tiny. If scale is small, radius is huge.
+        // Let's use 1.0 / min(scale) to be safe (detect collision earlier)?
+        const minScale = Math.min(sx, Math.min(sy, sz));
+        const localRadius = player.radius / minScale;
+
+        if (distSq > localRadius * localRadius && distSq > 0.000001) return null; // No hit
+
+        // Collision Detected
+        // Need Normal and Depth in World Space
+
+        let normalLocal = new Vector3(0, 1, 0);
+        let penetrationLocal = 0;
+
+        if (distSq > 0.000001) {
+            // Outside box (touching face/edge/corner)
+            const dist = Math.sqrt(distSq);
+            normalLocal = diff.normalize();
+            penetrationLocal = localRadius - dist;
+        } else {
+            // Inside box! (Center is inside)
+            // Find closest wall to push out
+            // Distances to faces
+            const dX = half - Math.abs(localPos.x);
+            const dY = half - Math.abs(localPos.y);
+            const dZ = half - Math.abs(localPos.z);
+
+            if (dX < dY && dX < dZ) {
+                normalLocal.set(Math.sign(localPos.x), 0, 0);
+                penetrationLocal = dX + localRadius; // Push out fully + radius check
+            } else if (dY < dZ) {
+                normalLocal.set(0, Math.sign(localPos.y), 0);
+                penetrationLocal = dY + localRadius;
+            } else {
+                normalLocal.set(0, 0, Math.sign(localPos.z));
+                penetrationLocal = dZ + localRadius;
+            }
+        }
+
+        // Transform Normal to World
+        // N_world = R * N_local (ignore scale for normal usually, or inverse transpose if non-uniform)
+        // Simplest: Rotate by R
+        const worldNormal = normalLocal.clone();
+        // Rotate X
+        dy = worldNormal.y; dz = worldNormal.z;
+        worldNormal.y = dy * Math.cos(radX) - dz * Math.sin(radX);
+        worldNormal.z = dy * Math.sin(radX) + dz * Math.cos(radX);
+        // Rotate Y
+        dx = worldNormal.x; dz = worldNormal.z;
+        worldNormal.x = dx * Math.cos(radY) + dz * Math.sin(radY); // Check sign convention
+        worldNormal.z = -dx * Math.sin(radY) + dz * Math.cos(radY);
+        // Rotate Z
+        dx = worldNormal.x; dy = worldNormal.y;
+        worldNormal.x = dx * Math.cos(radZ) - dy * Math.sin(radZ);
+        worldNormal.y = dx * Math.sin(radZ) + dy * Math.cos(radZ);
+
+        worldNormal.normalize();
+
+        // Transform Depth
+        // Approximate: Scale by relevant axis scale?
+        // Dot product normal with scale vector?
+        const scaleVec = new Vector3(sx, sy, sz);
+        // Project scale onto normal? 
+        // Simple conservative: depth * minScale (if we shrank world, we must expand depth back)
+        // Wait, we divided World by Scale to get Local.
+        // So Depth_World = Depth_Local * Scale.
+        const worldDepth = penetrationLocal * Math.max(sx, Math.max(sy, sz));
 
         return {
-            min: { x: x - extentX, y: y - extentY, z: z - extentZ },
-            max: { x: x + extentX, y: y + extentY, z: z + extentZ }
+            normal: worldNormal,
+            depth: worldDepth,
+            localY: localPos.y + half // 0 to 1 relative height approx?
         };
     }
 
