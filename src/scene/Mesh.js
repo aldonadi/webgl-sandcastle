@@ -49,6 +49,106 @@ export class Mesh {
 
         // Collision
         this.isCollidable = true;
+
+        // Bounding Sphere (Local)
+        this.boundingSphere = this.computeBoundingSphere(vertices);
+    }
+
+    computeBoundingSphere(vertices) {
+        // Simple approximation: AABB Center + Radius
+        // Or Min/Max extents
+        let minX = Infinity, minY = Infinity, minZ = Infinity;
+        let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+        for (let i = 0; i < vertices.length; i += 3) {
+            const x = vertices[i];
+            const y = vertices[i + 1];
+            const z = vertices[i + 2];
+
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+            if (z < minZ) minZ = z;
+            if (z > maxZ) maxZ = z;
+        }
+
+        const center = {
+            x: (minX + maxX) / 2,
+            y: (minY + maxY) / 2,
+            z: (minZ + maxZ) / 2
+        };
+
+        // Radius: Distance to furthest point (or just box corner)
+        // Corner approximation is safer for Box
+        const dx = (maxX - minX) / 2;
+        const dy = (maxY - minY) / 2;
+        const dz = (maxZ - minZ) / 2;
+        const radius = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        return { center, radius };
+    }
+
+    getWorldBoundingSphere() {
+        // Apply Model Matrix transformations to sphere
+        // Since we handle R, T, S separately:
+
+        // 1. Scale
+        const sx = this.scale ? this.scale.x : 1.0;
+        const sy = this.scale ? this.scale.y : 1.0;
+        const sz = this.scale ? this.scale.z : 1.0;
+        const maxScale = Math.max(Math.abs(sx), Math.max(Math.abs(sy), Math.abs(sz)));
+
+        // 2. Rotate (Center handles it if relative to origin of mesh?)
+        // Mesh center is usually (0,0,0) locally, but 'computeBoundingSphere' finds the geometric center.
+        // We need to rotate the Local Geometric Center.
+
+        // Let's rely on updateMatrices logic for T * R * S
+        // Center_World = Model * Center_Local
+
+        const c = this.boundingSphere.center;
+        // Optimization: if c is (0,0,0) (common for centered primitives), we skip rotation/scale on center.
+        // But CastleBuilder builds complex meshes where center != 0.
+
+        // Manual Transform (Model Matrix)
+        // P' = T * R * S * P
+
+        // Scale
+        let x = c.x * sx;
+        let y = c.y * sy;
+        let z = c.z * sz;
+
+        // Rotate
+        if (this.rotation) {
+            const rx = this.rotation.x * Math.PI / 180;
+            const ry = this.rotation.y * Math.PI / 180;
+            const rz = this.rotation.z * Math.PI / 180;
+
+            // X
+            let dy = y; let dz = z;
+            y = dy * Math.cos(rx) - dz * Math.sin(rx);
+            z = dy * Math.sin(rx) + dz * Math.cos(rx);
+
+            // Y
+            let dx = x; dz = z;
+            x = dx * Math.cos(ry) + dz * Math.sin(ry);
+            z = -dx * Math.sin(ry) + dz * Math.cos(ry);
+
+            // Z
+            dx = x; dy = y;
+            x = dx * Math.cos(rz) - dy * Math.sin(rz);
+            y = dx * Math.sin(rz) + dy * Math.cos(rz);
+        }
+
+        // Translate
+        x += this.position.x;
+        y += this.position.y;
+        z += this.position.z;
+
+        return {
+            center: { x, y, z },
+            radius: this.boundingSphere.radius * maxScale
+        };
     }
 
     createBuffer(type, data) {
