@@ -52,6 +52,25 @@ export class Cube extends Mesh {
             0, 0, 1, 0, 1, 1, 0, 1
         ];
 
+        // Tangents (xyz) for each vertex
+        // Tangent should point in direction of +U
+        const tangents = [
+            // Front: +x
+            1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+            // Back: -x
+            -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
+            // Top: +x
+            1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+            // Bottom: +x
+            1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+            // Right: -z ? Check UVs. 
+            // Right Face: normal (1,0,0). UVs match logic of "wrapping".
+            // If we look at Right face, +U goes into screen (-z).
+            0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
+            // Left Face: normal (-1,0,0). +U comes out (+z).
+            0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1
+        ];
+
         const indices = [
             0, 1, 2, 0, 2, 3,    // Front
             4, 5, 6, 4, 6, 7,    // Back
@@ -61,6 +80,6 @@ export class Cube extends Mesh {
             20, 21, 22, 20, 22, 23    // Left
         ];
 
-        super(gl, vertices, normals, texCoords, indices);
+        super(gl, vertices, normals, texCoords, indices, tangents);
     }
 }

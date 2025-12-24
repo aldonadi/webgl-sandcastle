@@ -25,11 +25,19 @@ export class Plane extends Mesh {
             0, tiling
         ];
 
+        // Tangent: +x for flat plane on XZ
+        const tangents = [
+            1, 0, 0,
+            1, 0, 0,
+            1, 0, 0,
+            1, 0, 0
+        ];
+
         const indices = [
             0, 1, 2,
             0, 2, 3
         ];
 
-        super(gl, vertices, normals, texCoords, indices);
+        super(gl, vertices, normals, texCoords, indices, tangents);
     }
 }

@@ -247,7 +247,31 @@ Blinn-Phong uses the **Halfway Vector** ($\mathbf{H}$), which is halfway between
 
 $$ \mathbf{H} = \frac{\mathbf{L} + \mathbf{V}}{||\mathbf{L} + \mathbf{V}||} $$
 
-The intensity is calculated by comparing this Halfway vector to the Surface Normal ($\mathbf{N}$):
 $$ I_{specular} = (\max(\mathbf{N} \cdot \mathbf{H}, 0))^{\alpha} \times I_{intensity} $$
 Where $\alpha$ is the **Shininess** factor (e.g., 32 or 64). Higher shininess = smaller, sharper highlight.
+
+---
+
+## 9. Bump Mapping & Normal Mapping
+
+Bump Mapping involves simulating surface detail (like bricks or sand grains) without adding millions of triangles.
+
+### Tangent Space Normal Mapping
+We use a **Normal Map**, a texture where RGB values represent $(x, y, z)$ components of a surface normal vector.
+- **R**: Deviation in Tangent (X) direction.
+- **G**: Deviation in Bitangent (Y) direction.
+- **B**: Deviation in Normal (Z) direction.
+
+To use this, we need a coordinate system aligned with the surface texture: **Tangent Space**.
+We construct a **TBN Matrix** (Tangent, Bitangent, Normal) at each vertex:
+$$ \mathbf{TBN} = \begin{bmatrix} | & | & | \\ \mathbf{T} & \mathbf{B} & \mathbf{N} \\ | & | & | \end{bmatrix} $$
+
+In the Fragment Shader, we do:
+1. Sample the Normal map color ($0 \to 1$).
+2. Remap to vector range ($-1 \to 1$): `n = color * 2.0 - 1.0`.
+3. Transform this vector from Tangent Space to World Space using the TBN matrix.
+4. Use this new "perturbed" normal for lighting calculations.
+
+This makes flat surfaces appear rough/bumpy because light bounces off them as if they had complex geometry.
+
 

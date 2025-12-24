@@ -3,7 +3,8 @@ import { ShaderProgram } from '../renderer/ShaderProgram.js';
 import { BasicVertexShader, BasicFragmentShader } from '../renderer/Shaders.js';
 
 export class Mesh {
-    constructor(gl, vertices, normals, texCoords, indices) {
+    // Add tangents to constructor params
+    constructor(gl, vertices, normals, texCoords, indices, tangents) {
         this.gl = gl;
         this.modelMatrix = new Matrix4();
         this.normalMatrix = new Matrix4(); // Inverse transpose of model
@@ -11,6 +12,7 @@ export class Mesh {
 
         // Default Material Props
         this.texture = null;
+        this.normalMap = null; // New Normal Map
         this.baseColor = [1, 1, 1];
         this.specularIntensity = 0.5;
         this.shininess = 32.0;
@@ -24,6 +26,20 @@ export class Mesh {
         this.vertexBuffer = this.createBuffer(gl.ARRAY_BUFFER, new Float32Array(vertices));
         this.normalBuffer = this.createBuffer(gl.ARRAY_BUFFER, new Float32Array(normals));
         this.texCoordBuffer = this.createBuffer(gl.ARRAY_BUFFER, new Float32Array(texCoords));
+
+        // Tangent Buffer
+        if (tangents) {
+            this.tangentBuffer = this.createBuffer(gl.ARRAY_BUFFER, new Float32Array(tangents));
+        } else {
+            // Create dummy tangents if missing, to prevent errors? 
+            // Better: Just don't bind if not present, but shader expects it.
+            // For now let's assume primitives will provide it, or we fill with (1,0,0)
+            const count = vertices.length;
+            const dummyTangents = new Float32Array(count);
+            // simple default tangent (1,0,0)
+            for (let i = 0; i < count; i += 3) { dummyTangents[i] = 1; dummyTangents[i + 1] = 0; dummyTangents[i + 2] = 0; }
+            this.tangentBuffer = this.createBuffer(gl.ARRAY_BUFFER, dummyTangents);
+        }
 
         if (indices) {
             this.indexBuffer = this.createBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
@@ -41,20 +57,69 @@ export class Mesh {
         this.texture = texture;
     }
 
+    setNormalMap(texture) {
+        this.normalMap = texture;
+    }
+
     setPosition(x, y, z) {
         this.position = { x, y, z };
         this.updateMatrices();
     }
 
-    updateMatrices() {
-        this.modelMatrix.setTranslate(this.position.x, this.position.y, this.position.z);
+    setRotation(x, y, z) {
+        this.rotation = { x, y, z }; // Euler angles in degrees
+        this.updateMatrices();
+    }
 
-        // For simple translation, normal matrix is identity (rotation/scale needed only)
-        // If we add rotation, we need to invert/transpose.
-        // Since our Matrix4 class is basic, and we only translate currently, 
-        // Identity is fine for now, OR we just copy rotation part if we had one.
-        // TODO: Implement Matrix4.inverse() and Matrix4.transpose() for full support.
+    setScale(x, y, z) {
+        this.scale = { x, y, z };
+        this.updateMatrices();
+    }
+
+    updateMatrices() {
+        this.modelMatrix.identity();
+
+        // T * R * S
+        this.modelMatrix.translate(this.position.x, this.position.y, this.position.z);
+
+        if (this.rotation) {
+            this.modelMatrix.rotate(this.rotation.x * Math.PI / 180, 1, 0, 0);
+            this.modelMatrix.rotate(this.rotation.y * Math.PI / 180, 0, 1, 0);
+            this.modelMatrix.rotate(this.rotation.z * Math.PI / 180, 0, 0, 1);
+        }
+
+        if (this.scale) {
+            this.modelMatrix.scale(this.scale.x, this.scale.y, this.scale.z);
+        }
+
+        // Normal Matrix: Inverse Transpose of Model Matrix (upper 3x3)
+        // Since we don't have full inverse/transpose support yet, we approximate:
+        // For Rotation: R^-1 = R^T.
+        // For Scale: S^-1 = 1/S.
+        // If Uniform Scale: Normal Matrix = Model Matrix (rotation part). Scale cancels out if we normalize?
+        // Actually, if we have non-uniform scale, normals get distorted.
+        // We MUST inverse-transpose.
+
+        // Since I can't easily invert a full 4x4 with the current class without writing a lot of code,
+        // I will re-compose the normal matrix: T_norm * R_norm * S_norm
+        // Normal Matrix should be (M^-1)^T.
+        // M = T * R * S
+        // M^-1 = S^-1 * R^-1 * T^-1
+        // (M^-1)^T = (T^-1)^T * (R^-1)^T * (S^-1)^T
+        // Translation doesn't affect normals (w=0).
+        // So we only care about R and S.
+        // N = R * S^-1
+
         this.normalMatrix.identity();
+        if (this.rotation) {
+            this.normalMatrix.rotate(this.rotation.x * Math.PI / 180, 1, 0, 0);
+            this.normalMatrix.rotate(this.rotation.y * Math.PI / 180, 0, 1, 0);
+            this.normalMatrix.rotate(this.rotation.z * Math.PI / 180, 0, 0, 1);
+        }
+        if (this.scale) {
+            // S^-1
+            this.normalMatrix.scale(1 / this.scale.x, 1 / this.scale.y, 1 / this.scale.z);
+        }
     }
 
     draw(gl, camera, light) {
@@ -64,6 +129,7 @@ export class Mesh {
         this.bindAttribute('aPosition', this.vertexBuffer, 3);
         this.bindAttribute('aNormal', this.normalBuffer, 3);
         this.bindAttribute('aTexCoord', this.texCoordBuffer, 2);
+        this.bindAttribute('aTangent', this.tangentBuffer, 3);
 
         // Uniforms - Matrices
         const uModel = this.program.getUniformLocation('uModelMatrix');
@@ -82,17 +148,30 @@ export class Mesh {
         const uShininess = this.program.getUniformLocation('uShininess');
         const uTexture = this.program.getUniformLocation('uTexture');
 
+        // Normal Map Uniforms
+        const uNormalMap = this.program.getUniformLocation('uNormalMap');
+        const uHasNormalMap = this.program.getUniformLocation('uHasNormalMap');
+
         gl.uniform3fv(uBaseColor, this.baseColor);
         gl.uniform1f(uSpecular, this.specularIntensity);
         gl.uniform1f(uShininess, this.shininess);
 
-        // Texture
+        // Diffuse Texture Unit 0
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
         gl.uniform1i(uTexture, 0);
 
+        // Normal Map Texture Unit 1
+        if (this.normalMap) {
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, this.normalMap);
+            gl.uniform1i(uNormalMap, 1);
+            gl.uniform1i(uHasNormalMap, 1); // True
+        } else {
+            gl.uniform1i(uHasNormalMap, 0); // False
+        }
+
         // Uniforms - Lighting / Camera
-        // Assuming light and camera objects passed have properties
         const uLightPos = this.program.getUniformLocation('uLightPos');
         const uLightColor = this.program.getUniformLocation('uLightColor');
         const uAmbient = this.program.getUniformLocation('uAmbientColor');
@@ -103,7 +182,6 @@ export class Mesh {
             gl.uniform3fv(uLightColor, light.color);
             gl.uniform3fv(uAmbient, light.ambient);
         } else {
-            // Fallback default light
             gl.uniform3f(uLightPos, 0, 5, 0);
             gl.uniform3f(uLightColor, 1, 1, 1);
             gl.uniform3f(uAmbient, 0.2, 0.2, 0.2);

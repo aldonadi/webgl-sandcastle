@@ -125,6 +125,21 @@ export class Matrix4 {
         return this.multiply(m);
     }
 
+    setScale(x, y, z) {
+        const e = this.elements;
+        e[0] = x; e[4] = 0; e[8] = 0; e[12] = 0;
+        e[1] = 0; e[5] = y; e[9] = 0; e[13] = 0;
+        e[2] = 0; e[6] = 0; e[10] = z; e[14] = 0;
+        e[3] = 0; e[7] = 0; e[11] = 0; e[15] = 1;
+        return this;
+    }
+
+    scale(x, y, z) {
+        const m = new Matrix4();
+        m.setScale(x, y, z);
+        return this.multiply(m);
+    }
+
     setPerspective(fovy, aspect, near, far) {
         const e = this.elements;
         const f = 1.0 / Math.tan(fovy * Math.PI / 360);
