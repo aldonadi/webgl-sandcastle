@@ -44,6 +44,9 @@ export class Mesh {
         if (indices) {
             this.indexBuffer = this.createBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
         }
+
+        // Collision
+        this.isCollidable = true;
     }
 
     createBuffer(type, data) {
@@ -74,6 +77,39 @@ export class Mesh {
     setScale(x, y, z) {
         this.scale = { x, y, z };
         this.updateMatrices();
+    }
+
+    getAABB() {
+        // Simple AABB based on Position and Scale
+        // Assumes unit/centered primitive which is common for generated spheres/cubes
+        // Position is center.
+        // Scale is radius or half-width.
+
+        const x = this.position.x;
+        const y = this.position.y;
+        const z = this.position.z;
+
+        // Default scale 1
+        const sx = this.scale ? this.scale.x : 1.0;
+        const sy = this.scale ? this.scale.y : 1.0;
+        const sz = this.scale ? this.scale.z : 1.0;
+
+        // Assuming base size 1.0 (radius 0.5 for sphere, half-width 0.5 for cube)
+        // Actually Cube creates vertices from -0.5 to 0.5.
+        // Sphere creates Radius passed in. But here Mesh doesn't know.
+        // But we pass scale to Cube/Sphere usually to resize them.
+        // Let's assume the "base" size is radius/extent 0.5 (diameter 1) effectively.
+        // Except for Sphere where we explicitly passed 0.5...
+        // Let's use a "radius" of 0.5 * scale as a safe bet for generic Mesh/Cube.
+
+        const extentX = 0.5 * sx;
+        const extentY = 0.5 * sy;
+        const extentZ = 0.5 * sz;
+
+        return {
+            min: { x: x - extentX, y: y - extentY, z: z - extentZ },
+            max: { x: x + extentX, y: y + extentY, z: z + extentZ }
+        };
     }
 
     updateMatrices() {

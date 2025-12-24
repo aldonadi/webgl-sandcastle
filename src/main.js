@@ -137,6 +137,14 @@ bridge.setRotation(10, 0, 0); // Slight angle
 scene.add(bridge);
 // Bridge is walkable, not collidable (or maybe it is? Let's ignore it for now)
 
+// Ghost Cube (Pass-through test)
+const ghost = new Cube(renderer.gl, 1.0);
+ghost.setTexture(texSand);
+ghost.setPosition(5, 1, 0); // To the right of entrance
+ghost.isCollidable = false; // MAGIC FLAG
+scene.add(ghost);
+collidables.push(ghost); // Add to list, but flag should prevent collision
+
 // -- Player --
 const player = new Player(renderer.gl, texGen);
 scene.add(player.mesh);
@@ -158,10 +166,9 @@ function loop(time) {
   const isPlayerMoving = (Math.abs(move.x) > 0.01 || Math.abs(move.y) > 0.01);
 
   // Update Player
-  player.update(dt, move);
+  player.update(dt, move, collidables);
 
-  // Resolve Collision
-  player.resolveCollision(collidables);
+  // Resolve Collision (Handled in update now)
 
   // Update Camera
   camera.update(dt, player, look, isPlayerMoving, collidables);

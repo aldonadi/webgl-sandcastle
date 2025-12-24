@@ -72,41 +72,55 @@ export class Player {
         this.texture = texGen.uploadTexture(canvas, width, height);
     }
 
-    update(dt, inputVector) {
+    update(dt, inputVector, sceneObjects) {
         const moveSpeed = 5.0;
         const turnSpeed = 2.0;
 
-        // Tank Controls:
-        // Input X: Turn Left/Right (Yaw)
-        // Input Y: Move Forward/Back (relative to current rotation)
-
+        // Tank Controls...
         if (Math.abs(inputVector.x) > 0.01) {
-            // Invert x for correct yaw direction
             this.rotation -= inputVector.x * turnSpeed * dt;
         }
 
         let visualsRotation = this.rotation;
 
+        // Potential Position
+        let newX = this.position.x;
+        let newZ = this.position.z;
+
         if (Math.abs(inputVector.y) > 0.01) {
             const fwdSpeed = -inputVector.y * moveSpeed * dt;
 
-            // Forward (+Z direction if Rot=0)
             const dx = Math.sin(this.rotation);
             const dz = Math.cos(this.rotation);
 
-            this.position.x += dx * fwdSpeed;
-            this.position.z += dz * fwdSpeed;
+            newX += dx * fwdSpeed;
+            newZ += dz * fwdSpeed;
 
-            // Visual Rotation Logic: Face camera if moving backward
             if (inputVector.y > 0) {
                 visualsRotation = this.rotation + Math.PI;
             }
         }
 
+        // Check Collision PREDICTIVELY
+        // We check if moving to (newX, newZ) causes intersection.
+        if (sceneObjects) {
+            if (!this.checkCollision(newX, this.position.z, sceneObjects)) {
+                this.position.x = newX;
+            }
+            if (!this.checkCollision(this.position.x, newZ, sceneObjects)) {
+                this.position.z = newZ;
+            }
+            // Logic: Try moving X, if safe commit. Try moving Z, if safe commit. 
+            // This allows sliding along walls.
+        } else {
+            this.position.x = newX;
+            this.position.z = newZ;
+        }
+
         // Simple Gravity / Floor clamp
         this.position.y = this.radius;
 
-        // Breathing Animation
+        // Breathing...
         this.breathingTime += dt;
         const breathRate = 2.0;
         const breathAmount = 0.05;
@@ -125,48 +139,55 @@ export class Player {
         this.mesh.setScale(scaleXZ, scaleY, scaleXZ);
     }
 
-    resolveCollision(sceneObjects) {
-        // Simple iteration over scene objects
-        // We assume objects have position and scale properties (Mesh has them)
-        // We won't do full OBB collision, just simple circle-circle or circle-rect approximation in 2D (XZ plane)
+    getBoundingBox(x, z) {
+        // Player AABB centered at x, z
+        const radius = this.radius;
+        // Use slight buffer?
+        return {
+            min: { x: x - radius, y: 0, z: z - radius },
+            max: { x: x + radius, y: radius * 2, z: z + radius }
+        };
+    }
+
+    checkCollision(newX, newZ, sceneObjects) {
+        const playerBox = this.getBoundingBox(newX, newZ);
 
         for (const obj of sceneObjects) {
-            if (obj === this.mesh) continue; // Skip self
-            if (!obj.position) continue;
+            if (obj === this.mesh) continue;
+            if (!obj.isCollidable) continue; // Respect flag
 
-            // Check types based on constructor name or just generic "size"
-            // Bounds approximation
-            const dx = this.position.x - obj.position.x;
-            const dz = this.position.z - obj.position.z;
-            const dist = Math.sqrt(dx * dx + dz * dz);
-
-            // Get object approximate radius from scale
-            // Cube scale is (x, y, z). Box width approx max(scale.x, scale.z) / 2?
-            // Cube size is 1.0 * scale.
-            // Cylinder radius is passed in constructor, but usually not stored as prop unless we checked.
-            // Let's assume everything is a "circle" of radius = max(scale.x, scale.z) * 0.7 for now
-            // Or better, check for "Cube" vs "Cylinder".
-
-            let objRadius = 0.5; // Default
-            if (obj.scale) {
-                objRadius = Math.max(obj.scale.x, obj.scale.z) * 0.6; // Slightly generous
+            // Get Object AABB
+            // If obj has getAABB, use it.
+            let objBox = null;
+            if (obj.getAABB) {
+                objBox = obj.getAABB();
+            } else if (obj.position) {
+                // Fallback (assume size 1)
+                objBox = {
+                    min: { x: obj.position.x - 0.5, y: obj.position.y - 0.5, z: obj.position.z - 0.5 },
+                    max: { x: obj.position.x + 0.5, y: obj.position.y + 0.5, z: obj.position.z + 0.5 }
+                };
             }
 
-            const minDist = this.radius + objRadius;
+            if (objBox) {
+                // AABB Overlap Test
+                const overlap = (
+                    playerBox.min.x < objBox.max.x &&
+                    playerBox.max.x > objBox.min.x &&
+                    playerBox.min.y < objBox.max.y &&
+                    playerBox.max.y > objBox.min.y &&
+                    playerBox.min.z < objBox.max.z &&
+                    playerBox.max.z > objBox.min.z
+                );
 
-            if (dist < minDist) {
-                // Collision!
-                // Push back
-                const overlap = minDist - dist;
-                if (dist > 0.001) {
-                    const nx = dx / dist;
-                    const nz = dz / dist;
-
-                    this.position.x += nx * overlap;
-                    this.position.z += nz * overlap;
-                }
+                if (overlap) return true;
             }
         }
+        return false;
+    }
+
+    resolveCollision(sceneObjects) {
+        // Deprecated/Unused now handled in update
     }
 
     draw(gl, camera, light) {
