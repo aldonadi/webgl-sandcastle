@@ -147,22 +147,23 @@ scene.add(ghost);
 collidables.push(ghost); // Add to list, but flag should prevent collision
 
 // -- Power-up (Golden Torus) --
-// Diameter 0.5 (Radius ~0.25)
+// Diameter 0.5 -> 1.0 (Radius ~0.5)
 const texGold = texGen.createTexture(128, 128, {
   color: '#FFD700', // Gold
   noise: 0.05 // Low noise
 });
 
-const torus = new Torus(renderer.gl, 0.15, 0.05, 16, 32);
+// Double Size: Radius 0.3, Tube 0.1 (total width approx 0.8)
+const torus = new Torus(renderer.gl, 0.3, 0.1, 16, 32);
 torus.setTexture(texGold); // Use gold texture
 torus.baseColor = [1.0, 0.9, 0.4]; // Tint
 torus.specularIntensity = 2.0; // Very shiny
 torus.shininess = 64.0;
 torus.emissive = [0.8, 0.6, 0.1]; // Golden Glow (simulated emission)
-torus.setPosition(5, 0.5, 8); // Outside of castle
+torus.setPosition(5, 0.8, 8); // Outside of castle, Higher up
 torus.isCollidable = false;
 
-// Slightly tilt it for better look
+// Initial Rotation
 torus.setRotation(45, 0, 0);
 
 scene.add(torus);
@@ -191,7 +192,19 @@ function loop(time) {
   // Update Player
   player.update(dt, move, collidables);
 
-  // Resolve Collision (Handled in update now)
+  // Update Torus Animation
+  // 1. Continual Rotation around Y axis (and maybe Z for fun?)
+  const rotSpeed = 90; // degrees per second
+  const bounceSpeed = 2.0;
+  const bounceAmp = 0.2;
+  const baseHeight = 0.8;
+
+  const currentRot = torus.rotation ? torus.rotation : { x: 0, y: 0, z: 0 };
+  torus.setRotation(45, (time / 1000 * rotSpeed) % 360, 0);
+
+  // 2. Bounce Up and Down
+  const newY = baseHeight + Math.sin(time / 1000 * bounceSpeed) * bounceAmp;
+  torus.setPosition(torus.position.x, newY, torus.position.z);
 
   // Update Camera
   camera.update(dt, player, look, isPlayerMoving, collidables);
