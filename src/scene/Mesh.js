@@ -44,6 +44,9 @@ export class Mesh {
         if (indices) {
             this.indexBuffer = this.createBuffer(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices));
         }
+
+        // NEW: compute local AABB
+        this.boundingBox = this.computeLocalAABB(vertices);
     }
 
     createBuffer(type, data) {
@@ -120,6 +123,57 @@ export class Mesh {
             // S^-1
             this.normalMatrix.scale(1 / this.scale.x, 1 / this.scale.y, 1 / this.scale.z);
         }
+    }
+
+    /* NEW: compute local AABB from vertex list */
+    computeLocalAABB(vertices) {
+        let minX = Infinity, minY = Infinity, minZ = Infinity;
+        let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+        for (let i = 0; i < vertices.length; i += 3) {
+            const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+        }
+
+        return { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] };
+    }
+
+    /* NEW: transform a point by a 4×4 matrix (column‑major) */
+    static transformPoint(mat, x, y, z) {
+        const e = mat.elements;
+        const w = 1.0;
+        const nx = e[0] * x + e[4] * y + e[8]  * z + e[12] * w;
+        const ny = e[1] * x + e[5] * y + e[9]  * z + e[13] * w;
+        const nz = e[2] * x + e[6] * y + e[10] * z + e[14] * w;
+        return [nx, ny, nz];
+    }
+
+    /* NEW: return world‑space AABB after applying model matrix */
+    getWorldAABB() {
+        const corners = [
+            [this.boundingBox.min[0], this.boundingBox.min[1], this.boundingBox.min[2]],
+            [this.boundingBox.min[0], this.boundingBox.min[1], this.boundingBox.max[2]],
+            [this.boundingBox.min[0], this.boundingBox.max[1], this.boundingBox.min[2]],
+            [this.boundingBox.min[0], this.boundingBox.max[1], this.boundingBox.max[2]],
+            [this.boundingBox.max[0], this.boundingBox.min[1], this.boundingBox.min[2]],
+            [this.boundingBox.max[0], this.boundingBox.min[1], this.boundingBox.max[2]],
+            [this.boundingBox.max[0], this.boundingBox.max[1], this.boundingBox.min[2]],
+            [this.boundingBox.max[0], this.boundingBox.max[1], this.boundingBox.max[2]],
+        ];
+
+        let minX = Infinity, minY = Infinity, minZ = Infinity;
+        let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+        for (const c of corners) {
+            const [x, y, z] = Mesh.transformPoint(this.modelMatrix, c[0], c[1], c[2]);
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+        }
+
+        return { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] };
     }
 
     draw(gl, camera, light) {
