@@ -114,3 +114,4 @@ export class Vector3 {
         this.elements[2] *= s;
         return this;
     }
+}
