@@ -81,49 +81,23 @@ export class Player {
         // Input Y: Move Forward/Back (relative to current rotation)
 
         if (Math.abs(inputVector.x) > 0.01) {
-            // Invert x because usually Right (positive) input means Turn Right (negative Yaw in standard RH system if Z is forward?)
-            // Let's test: 
-            // -Z is Forward. 
-            // Rotation +: Turns Left? or Right?
-            // Standard: +Y axis rotation.
-            // +Yaw -> rotates counter-clockwise (Left).
-            // So +InputX (Right) should allow -Yaw.
+            // Invert x for correct yaw direction
             this.rotation -= inputVector.x * turnSpeed * dt;
         }
 
         let visualsRotation = this.rotation;
 
         if (Math.abs(inputVector.y) > 0.01) {
-            // Up (-1) -> Move Forward (-Z relative to rotation).
-            // Down (1) -> Move Backward (+Z relative to rotation).
-
-            // Forward Vector from Rotation
-            // Rot 0 -> +Z? (from atan2(0,1)).
-            // Let's stick to: Rot 0 is +Z.
-            // Forward (+Z direction) = (sin(rot), 0, cos(rot)).
-
-            // Move Delta: input.y * speed
-            // If input.y is -1 (Up), we want to move "Forward" (which is usually into screen, -Z?)
-            // Camera is behind (-Z direction).
-            // If Rot=0 (facing Z), Forward means +Z.
-            // If input.y = -1 (Up stick). We want to move +Z?
-            // Usually Up stick = Move away from camera.
-            // If Camera looks at +Z (from -Z), "away" is +Z.
-            // So Up (-1) -> +Z move.
-            // speed * (-input.y).
-
             const fwdSpeed = -inputVector.y * moveSpeed * dt;
 
-            // Calculate forward vector based on current rotation
-            // Assuming Rot 0 faces +Z
+            // Forward (+Z direction if Rot=0)
             const dx = Math.sin(this.rotation);
             const dz = Math.cos(this.rotation);
 
             this.position.x += dx * fwdSpeed;
             this.position.z += dz * fwdSpeed;
 
-            // Visual Rotation Logic
-            // If moving backward (input.y > 0), face camera (180 turn)
+            // Visual Rotation Logic: Face camera if moving backward
             if (inputVector.y > 0) {
                 visualsRotation = this.rotation + Math.PI;
             }
@@ -132,11 +106,23 @@ export class Player {
         // Simple Gravity / Floor clamp
         this.position.y = this.radius;
 
+        // Breathing Animation
+        this.breathingTime += dt;
+        const breathRate = 2.0;
+        const breathAmount = 0.05;
+
+        const sinVal = Math.sin(this.breathingTime * breathRate);
+        const scaleY = 1.0 - (sinVal * breathAmount);
+        const scaleXZ = 1.0 + (sinVal * breathAmount * 0.5);
+
         // Update Mesh Position
         this.mesh.setPosition(this.position.x, this.position.y, this.position.z);
 
         // Update Mesh Rotation (Visible)
         this.mesh.setRotation(0, visualsRotation * 180 / Math.PI, 0);
+
+        // Apply Scaling
+        this.mesh.setScale(scaleXZ, scaleY, scaleXZ);
     }
 
     resolveCollision(sceneObjects) {
