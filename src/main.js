@@ -1,10 +1,11 @@
 import { Renderer } from './renderer/Renderer.js';
-import { Camera } from './scene/Camera.js';
+import { ThirdPersonCamera } from './scene/ThirdPersonCamera.js';
 import { Scene } from './scene/Scene.js';
 import { Cube } from './scene/primitives/Cube.js';
 import { Plane } from './scene/primitives/Plane.js';
 import { Cylinder } from './scene/primitives/Cylinder.js';
 import { Cone } from './scene/primitives/Cone.js';
+import { Player } from './scene/Player.js';
 import { InputManager } from './input/InputManager.js';
 import { DocumentationViewer } from './ui/DocumentationViewer.js';
 import { TextureGenerator } from './renderer/TextureGenerator.js';
@@ -15,7 +16,7 @@ const renderer = new Renderer('glCanvas');
 // Sky Color: Summer Day Blue
 renderer.setClearColor(0.53, 0.81, 0.92, 1.0);
 
-const camera = new Camera();
+const camera = new ThirdPersonCamera();
 const scene = new Scene();
 const input = new InputManager();
 const docs = new DocumentationViewer();
@@ -62,13 +63,9 @@ moat.specularIntensity = 1.0;
 moat.shininess = 64.0;
 moat.setPosition(0, 0.01, 0);
 scene.add(moat);
-// Let's stick to Sand Ground for now, maybe add water later or user request.
-// Actually code above had:
-// scene.children = []; scene.add(ground); 
-// I will keep the cleanup to ensure ground is used.
-scene.children = [];
-scene.add(ground);
 
+// Collidables List
+const collidables = [];
 
 // --- Build Castle ---
 
@@ -84,6 +81,7 @@ setSandMaterial(keep);
 keep.setPosition(0, keepHeight / 2, 0); // Center
 keep.setScale(keepSize, keepHeight, keepSize);
 scene.add(keep);
+collidables.push(keep);
 
 // Towers (4 Corners)
 const dist = keepSize / 2 + towerRadius * 0.5;
@@ -94,6 +92,7 @@ function createTower(x, z) {
   setSandMaterial(t);
   t.setPosition(x, towerHeight / 2, z);
   scene.add(t);
+  collidables.push(t);
 
   // Cone Roof
   const roofHeight = 2.0;
@@ -119,6 +118,7 @@ function createWall(x, z, rotY, len) {
   w.setRotation(0, rotY, 0);
   w.setScale(len, wallH, wallThick);
   scene.add(w);
+  collidables.push(w);
 }
 
 createWall(0, dist, 0, keepSize); // Back
@@ -135,13 +135,11 @@ bridge.setPosition(0, 0.1, -dist - 2.0); // Outside front wall
 bridge.setScale(1.5, 0.2, 3.0);
 bridge.setRotation(10, 0, 0); // Slight angle
 scene.add(bridge);
+// Bridge is walkable, not collidable (or maybe it is? Let's ignore it for now)
 
-
-// Position camera initially
-camera.position.set(0, 2, 8); // Start further back
-camera.yaw = -90;
-camera.pitch = -15;
-camera.updateViewMatrix();
+// -- Player --
+const player = new Player(renderer.gl, texGen);
+scene.add(player.mesh);
 
 renderer.setScene(scene);
 renderer.setCamera(camera);
@@ -154,20 +152,22 @@ function loop(time) {
   lastTime = time;
 
   // Update Input
-  const move = input.getMoveVector();
-  const look = input.getLookVector();
+  const move = input.getMoveVector(); // {x, y}
+  const look = input.getLookVector(); // {x, y}
 
-  // Move speed (units per second)
-  const moveSpeed = 5.0 * (dt || 0.016);
-  const lookSpeed = 2.0;
+  const isPlayerMoving = (Math.abs(move.x) > 0.01 || Math.abs(move.y) > 0.01);
 
-  if (Math.abs(move.x) > 0.01 || Math.abs(move.y) > 0.01) {
-    camera.move(-move.y * moveSpeed, move.x * moveSpeed);
-  }
+  // Update Player
+  // Pass camera yaw so player moves relative to camera view
+  // Camera yaw is in degrees, convert to radians
+  const camYawRad = camera.yaw * Math.PI / 180;
+  player.update(dt, move, camYawRad);
 
-  if (Math.abs(look.x) > 0.01 || Math.abs(look.y) > 0.01) {
-    camera.rotate(look.x * lookSpeed, look.y * lookSpeed); // Yaw, Pitch
-  }
+  // Resolve Collision
+  player.resolveCollision(collidables);
+
+  // Update Camera
+  camera.update(dt, player, look, isPlayerMoving);
 
   // Animate Light to show varying bump shadows
   const lightTime = time / 1000;
