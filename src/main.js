@@ -160,7 +160,7 @@ torus.baseColor = [1.0, 0.9, 0.4]; // Tint
 torus.specularIntensity = 2.0; // Very shiny
 torus.shininess = 64.0;
 torus.emissive = [0.8, 0.6, 0.1]; // Golden Glow (simulated emission)
-torus.setPosition(5, 0.8, 8); // Outside of castle, Higher up
+torus.setPosition(25, 2.0, 30); // Far Outside
 torus.isCollidable = false;
 
 // Initial Rotation
@@ -171,6 +171,8 @@ collidables.push(torus); // Pass through enabled via flag
 
 // -- Player --
 const player = new Player(renderer.gl, texGen);
+player.position.z = 45; // Start way outside
+player.position.x = 0;
 scene.add(player.mesh);
 
 renderer.setScene(scene);

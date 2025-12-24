@@ -1,74 +1,65 @@
-# Third Person Player & Camera Implementation
+# Epic Sandcastle & Graphics Upgrade
 
-## Goal
-Implement a third-person character controller where the player controls a textured sphere. The camera should follow the player in an "over-the-shoulder" view when moving, and allow for free orbiting when idle. Basic collision detection will prevent clipping through scene objects.
+## Goal Description
+Expand the scene into a massive, elaborate procedural sandcastle and improve visual fidelity by implementing "Soft Seams" (Depth-based blending) and Mesh Subdivision ("geometry smoothing").
+
+## User Review Required
+> [!IMPORTANT]
+> "Geometry smoothing in the fragment shader by doing vertex dividing" is technically contradictory.
+> **Interpretation**: 
+> 1. **Vertex Dividing**: Implement CPU-side Mesh Subdivision (increasing polygon count) to smooth silhouettes.
+> 2. **Fragment Shader Smoothing**: Implement **Depth-Based Edge Softening** (reading a Depth Texture) to visually blend intersecting objects (eliminating hard clipping lines).
 
 ## Proposed Changes
 
-### Primitives
-#### [NEW] [Sphere.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/scene/primitives/Sphere.js)
-- Implement a UV sphere mesh generator to represent the player.
+### Renderer Engine
+#### [MODIFY] [Renderer.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/renderer/Renderer.js)
+- Implement **Depth Pre-Pass**:
+    - Create Framebuffer Object (FBO) with Depth Texture.
+    - Add `renderDepth(scene)` method.
+    - Bind Depth Texture to slot 2 for Main Pass.
+    - Update `render` to call `renderDepth` first.
 
-### Player Logic
-#### [NEW] [Player.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/scene/Player.js)
-- **Properties**: Position, rotation, velocity, radius (collision).
-- **Methods**:
-    - `update(dt, inputVector)`: Handles movement with "Tank/Car" style controls.
-        - **Left/Right**: Rotates `rotation` (Control Yaw).
-        - **Up**: Moves forward along `rotation`. Visuals face forward.
-        - **Down**: Moves backward along `rotation`. Visuals face camera (180 turn).
-    - `draw(renderer, camera, light)`: Renders the player mesh.
-- **Visuals**: Use `TextureGenerator` to create a unique texture (e.g., stripes or marble) to make it "attractively-textured".
+### Shaders
+#### [MODIFY] [Shaders.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/renderer/Shaders.js)
+- **BasicFragmentShader**:
+    - Add `uniform sampler2D uDepthMap;`
+    - Add `uniform vec2 uResolution;`
+    - Calculate **Linear Depth** from `gl_FragCoord.z` and `texture2D(uDepthMap)`.
+    - Calculate `float softness = clamp((sceneDepth - fragDepth) * hardness, 0.0, 1.0);`
+    - Use `softness` to blend `vNormal` (fake bevel) or modify `gl_FragColor` (fog/AO effect) to smooth the seam.
 
-### Camera Logic
-#### [NEW] [ThirdPersonCamera.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/scene/ThirdPersonCamera.js)
-- **Properties**: `target` (Player), `distance`, `pitch`, `yaw`, `offset`.
-- **Logic**:
-    - **State 1 (Moving)**: Camera yaw strictly follows player rotation to keep "over-the-shoulder" view aligned as they turn.
-    - **State 2 (Idle)**: Loop input orbits the camera freely around the player.
-    - **Offset**: Applied to keep the player slightly off-center (over-the-shoulder).
+### Geometry
+#### [MODIFY] [Mesh.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/scene/Mesh.js)
+- Add `subdivide()` method:
+    - Iterate `this.indices` (triangles).
+    - Split each triangle into 4 smaller triangles (midpoints).
+    - Update `vertices`, `normals`, `texCoords`, `indices`.
+    - "Average" new vertices to smooth geometry (Loop-style approximation for spheres, linear for cubes).
 
-### Main Loop
+### Scene Generation
+#### [NEW] [CastleBuilder.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/scene/CastleBuilder.js)
+- Class `CastleBuilder`
+- Method `build(scene, collidables)`:
+    - Procedurally generate a large layout:
+        - **Outer Walls**: Large perimeter.
+        - **Towers**: Height variation, conical roofs.
+        - **Keep**: Massive central structure complex.
+        - **Details**: Merlons (crenellations), arches, buttresses.
+    - Apply `subdivide()` to critical meshes for quality.
+
 #### [MODIFY] [main.js](file:///home/andrew/Projects/Code/web/webgl-sandcastle/src/main.js)
-- Instantiate `Player` and add to scene (or manage separately if needed for collision).
-- Replace default `Camera` usage with `ThirdPersonCamera`.
-- Update `loop()` to pass input to Player and Camera.
-
-### Collision
-### Camera Collision
-- Implement `checkLineOfSight(start, end, objects)` method in `ThirdPersonCamera.js`.
-- **Logic**:
-    - Iterate through all scene objects.
-    - Treat objects as simplified bounding volumes (Sphere or AABB).
-    - Raycast from Player Head (start) to Camera Desired Position (end).
-    - If hit, clamp camera position to hit point.
-    - **Optimization**: Check bounding sphere of object first.
-    - `Vector3` needs helper for distance/subtract if not present (will add locally or update Vector3).
+- Replace hardcoded castle with `CastleBuilder`.
+- Pass `uDepthMap` uniforms (Resolution, Near, Far).
 
 ## Verification Plan
-### Manual Verification
-### Manual Verification
-- **Movement**: Verify sphere moves with joystick/WASD.
-- **Camera (Move)**: Verify camera follows player when moving.
-- **Camera (Idle)**: Verify camera orbits player when stopped.
-- **Collision**: Try to walk into the `keep` and `walls`. Player should stop sliding.
-- **Camera Collision**: Rotate camera so a wall is between camera and player. Camera should zoom in to avoid being blocked by wall.
-- **Robust Collision**:
-    - Walk into a wall; should verify no entry.
-    - Check that "Collidable" objects block.
-    - (Optional) Verify "Non-collidable" objects allow pass-through (will add a test object for this).
-### New Primitive: Torus
-- Create `src/scene/primitives/Torus.js`.
-- **Params**: `radius`, `tubeRadius`, `radialSegments`, `tubularSegments`.
-- **Implementation**: Standard parametric torus generation.
+### Automated Tests
+- None (Visual).
 
-### Power-up (Golden Torus)
-- **Texture**: Gold (Yellow/Orange, low noise, high specularity).
-- **Material**: `shininess = 64`, `specularIntensity = 2.0`.
-- **Glow**: Add `uEmissive` uniform to `BasicFragmentShader` and `Mesh.js`.
-    - Set emission for Torus to Golden.
-- **Collision**: `isCollidable = false`.
-- **Position**: Outside castle (e.g., `(5, 0.5, 8)`).
-
-### Player Adjustments
-- Move start position to `(0, 0.5, 10)` (Outside Castle, facing entrance).
+### Manual Verification
+- **Visual Check**:
+    - Intersecting look (sand piling) should be soft, not hard lines.
+    - Shadows/Depth should look correct.
+    - Framerate check (massive geometry might be heavy).
+- **Gameplay**:
+    - Collision should still work (using low-poly bounds or high-poly mesh? `Mesh.resolveCollision` uses AABB/OBB checks which might be expensive if many objects. Will optimize by keeping collision shapes simple if needed).

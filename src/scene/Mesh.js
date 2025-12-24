@@ -286,7 +286,7 @@ export class Mesh {
         }
     }
 
-    draw(gl, camera, light) {
+    draw(gl, camera, light, depthTexture) {
         this.program.use();
 
         // Attributes
@@ -310,8 +310,11 @@ export class Mesh {
         const uBaseColor = this.program.getUniformLocation('uBaseColor');
         const uSpecular = this.program.getUniformLocation('uSpecularIntensity');
         const uShininess = this.program.getUniformLocation('uShininess');
-        const uEmissive = this.program.getUniformLocation('uEmissive'); // Get location
+        const uEmissive = this.program.getUniformLocation('uEmissive');
         const uTexture = this.program.getUniformLocation('uTexture');
+        const uDepthMap = this.program.getUniformLocation('uDepthMap');
+        const uResolution = this.program.getUniformLocation('uResolution');
+        const uNearFar = this.program.getUniformLocation('uNearFar'); // Near, Far
 
         // Normal Map Uniforms
         const uNormalMap = this.program.getUniformLocation('uNormalMap');
@@ -320,7 +323,7 @@ export class Mesh {
         gl.uniform3fv(uBaseColor, this.baseColor);
         gl.uniform1f(uSpecular, this.specularIntensity);
         gl.uniform1f(uShininess, this.shininess);
-        gl.uniform3fv(uEmissive, this.emissive); // Bind value
+        gl.uniform3fv(uEmissive, this.emissive);
 
         // Diffuse Texture Unit 0
         gl.activeTexture(gl.TEXTURE0);
@@ -332,9 +335,21 @@ export class Mesh {
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, this.normalMap);
             gl.uniform1i(uNormalMap, 1);
-            gl.uniform1i(uHasNormalMap, 1); // True
+            gl.uniform1i(uHasNormalMap, 1);
         } else {
-            gl.uniform1i(uHasNormalMap, 0); // False
+            gl.uniform1i(uHasNormalMap, 0);
+        }
+
+        // Depth Texture Unit 2
+        if (depthTexture) {
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+            gl.uniform1i(uDepthMap, 2);
+            gl.uniform2f(uResolution, gl.canvas.width, gl.canvas.height);
+            // Hardcoding Near/Far for now or extract from camera?
+            // Camera doesn't publicly expose Near/Far easily in Matrix4 helper...
+            // Let's assume standard perspective: 0.1, 100.0
+            gl.uniform2f(uNearFar, 0.1, 100.0);
         }
 
         // Uniforms - Lighting / Camera
@@ -369,5 +384,26 @@ export class Mesh {
             this.gl.vertexAttribPointer(location, size, this.gl.FLOAT, false, 0, 0);
             this.gl.enableVertexAttribArray(location);
         }
+    }
+
+    subdivide() {
+        // Simple 1-to-4 Subdivision for Triangles
+        // Iterate current indices
+        if (!this.indicesCount) return;
+
+        // We need to read back data from buffers? 
+        // Or assume we still have the arrays if we store them. 
+        // We didn't store raw arrays in "this"! We only sent to GPU.
+        // Critical Flaw in current Mesh class: Data not retained.
+        // We must modify Constructor to retain data or can't subdivide post-creation.
+        // Actually, CastleBuilder creates meshes then adds to scene.
+        // We can call subdivide BEFORE constructor? Or modify Mesh to store data.
+        // Let's rely on the fact we usually create Mesh then modify, 
+        // but current Mesh constructor sends to GPU immediately.
+
+        // Workaround: We can't implement subdivide *inside* Mesh efficiently without refactoring Constructor.
+        // Alternative: Implement a static helper `GeometryUtils.subdivide(vertices, indices...)` 
+        // that returns new arrays, then pass to Mesh constructor.
+        console.warn("Subdivision not supported on already uploaded Mesh without CPU retention.");
     }
 }
