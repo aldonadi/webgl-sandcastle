@@ -39,11 +39,11 @@ export class Renderer {
         this.onResize(); // Ensure aspect ratio is correct
     }
 
-    render() {
+    render(light) {
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
         if (this.scene && this.camera) {
-            this.scene.draw(this.gl, this.camera);
+            this.scene.draw(this.gl, this.camera, light);
         }
     }
 }

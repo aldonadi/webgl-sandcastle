@@ -7,9 +7,9 @@ export class Scene {
         this.children.push(object);
     }
 
-    draw(gl, camera) {
+    draw(gl, camera, light) {
         for (const child of this.children) {
-            child.draw(gl, camera);
+            child.draw(gl, camera, light);
         }
     }
 }
