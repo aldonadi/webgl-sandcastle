@@ -16,6 +16,7 @@ export class Mesh {
         this.baseColor = [1, 1, 1];
         this.specularIntensity = 0.5;
         this.shininess = 32.0;
+        this.emissive = [0, 0, 0]; // Default no emission
 
         this.indicesCount = indices ? indices.length : 0;
 
@@ -182,6 +183,7 @@ export class Mesh {
         const uBaseColor = this.program.getUniformLocation('uBaseColor');
         const uSpecular = this.program.getUniformLocation('uSpecularIntensity');
         const uShininess = this.program.getUniformLocation('uShininess');
+        const uEmissive = this.program.getUniformLocation('uEmissive'); // Get location
         const uTexture = this.program.getUniformLocation('uTexture');
 
         // Normal Map Uniforms
@@ -191,6 +193,7 @@ export class Mesh {
         gl.uniform3fv(uBaseColor, this.baseColor);
         gl.uniform1f(uSpecular, this.specularIntensity);
         gl.uniform1f(uShininess, this.shininess);
+        gl.uniform3fv(uEmissive, this.emissive); // Bind value
 
         // Diffuse Texture Unit 0
         gl.activeTexture(gl.TEXTURE0);

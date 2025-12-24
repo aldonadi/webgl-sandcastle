@@ -52,6 +52,7 @@ export const BasicFragmentShader = `
   uniform vec3 uBaseColor; 
   uniform float uSpecularIntensity; 
   uniform float uShininess; 
+  uniform vec3 uEmissive; // Emission Color
 
   // Light
   uniform vec3 uLightPos;
@@ -91,7 +92,10 @@ export const BasicFragmentShader = `
     float spec = pow(max(dot(norm, halfwayDir), 0.0), uShininess);
     vec3 specular = uLightColor * spec * uSpecularIntensity; 
 
-    vec3 result = ambient + diffuse + specular;
+    // 6. Emission
+    vec3 emission = uEmissive;
+
+    vec3 result = ambient + diffuse + specular + emission;
     gl_FragColor = vec4(result, texColor.a);
   }
 `;

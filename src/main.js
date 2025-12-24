@@ -5,6 +5,7 @@ import { Cube } from './scene/primitives/Cube.js';
 import { Plane } from './scene/primitives/Plane.js';
 import { Cylinder } from './scene/primitives/Cylinder.js';
 import { Cone } from './scene/primitives/Cone.js';
+import { Torus } from './scene/primitives/Torus.js';
 import { Player } from './scene/Player.js';
 import { InputManager } from './input/InputManager.js';
 import { DocumentationViewer } from './ui/DocumentationViewer.js';
@@ -144,6 +145,28 @@ ghost.setPosition(5, 1, 0); // To the right of entrance
 ghost.isCollidable = false; // MAGIC FLAG
 scene.add(ghost);
 collidables.push(ghost); // Add to list, but flag should prevent collision
+
+// -- Power-up (Golden Torus) --
+// Diameter 0.5 (Radius ~0.25)
+const texGold = texGen.createTexture(128, 128, {
+  color: '#FFD700', // Gold
+  noise: 0.05 // Low noise
+});
+
+const torus = new Torus(renderer.gl, 0.15, 0.05, 16, 32);
+torus.setTexture(texGold); // Use gold texture
+torus.baseColor = [1.0, 0.9, 0.4]; // Tint
+torus.specularIntensity = 2.0; // Very shiny
+torus.shininess = 64.0;
+torus.emissive = [0.8, 0.6, 0.1]; // Golden Glow (simulated emission)
+torus.setPosition(5, 0.5, 8); // Outside of castle
+torus.isCollidable = false;
+
+// Slightly tilt it for better look
+torus.setRotation(45, 0, 0);
+
+scene.add(torus);
+collidables.push(torus); // Pass through enabled via flag
 
 // -- Player --
 const player = new Player(renderer.gl, texGen);

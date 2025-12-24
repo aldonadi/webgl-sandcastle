@@ -6,7 +6,7 @@ export class Player {
         this.radius = 0.5; // Player size
         this.mesh = new Sphere(gl, this.radius, 32, 32);
 
-        this.position = { x: 0, y: this.radius, z: 2 }; // Start offset from origin
+        this.position = { x: 0, y: this.radius, z: 10 }; // Start offset from origin (Outside)
         this.velocity = { x: 0, y: 0, z: 0 };
         this.rotation = 0; // Yaw in radians
 
