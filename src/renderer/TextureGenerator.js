@@ -133,6 +133,36 @@ export class TextureGenerator {
         return this.uploadTexture(canvas, width, height);
     }
 
+    /**
+     * Creates a circular flare/glow texture.
+     */
+    createFlareTexture(width, height, options = {}) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        const cx = width / 2;
+        const cy = height / 2;
+        const radius = width / 2;
+
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+
+        const color = options.color || '255, 255, 255'; // RGB string
+        const core = options.core || 0.0; // Sharpness of core
+
+        // Gradient: specific to flare type
+        // Simple Glow
+        grad.addColorStop(0, `rgba(${color}, 1.0)`);
+        grad.addColorStop(core, `rgba(${color}, 0.8)`);
+        grad.addColorStop(1, `rgba(${color}, 0.0)`);
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+
+        return this.uploadTexture(canvas, width, height);
+    }
+
     uploadTexture(canvas, width, height) {
         const texture = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, texture);

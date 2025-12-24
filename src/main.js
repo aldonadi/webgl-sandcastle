@@ -9,13 +9,19 @@ import { InputManager } from './input/InputManager.js';
 import { DocumentationViewer } from './ui/DocumentationViewer.js';
 import { TextureGenerator } from './renderer/TextureGenerator.js';
 
+import { LensFlare } from './scene/effects/LensFlare.js';
+
 const renderer = new Renderer('glCanvas');
+// Sky Color: Summer Day Blue
+renderer.setClearColor(0.53, 0.81, 0.92, 1.0);
+
 const camera = new Camera();
 const scene = new Scene();
 const input = new InputManager();
 const docs = new DocumentationViewer();
 
 const texGen = new TextureGenerator(renderer.gl);
+const lensFlare = new LensFlare(renderer.gl, texGen);
 
 // -- Textures --
 // 1. Sand Diffuse
@@ -48,24 +54,19 @@ ground.setPosition(0, 0, 0); // Base level 0
 scene.add(ground);
 
 // 2. Moat (Water)
-// We'll place a blue plane slightly above ground but confined? 
-// Simpler: The castle sits on an island (raised platform), moat is the ground level?
-// Let's make the "Ground" be the moat water, and build an island.
+// The castle sits on an island
 const moat = new Plane(renderer.gl, 50, 10.0);
 moat.setTexture(texWater);
 moat.setNormalMap(texWaterNormal);
 moat.specularIntensity = 1.0;
 moat.shininess = 64.0;
-moat.setPosition(0, 0.01, 0); // Just above infinite sand? 
-// Actually let's make the infinite plane "Sand", and the moat is a ring? 
-// Too complex for primitives. 
-// Let's just make the Castle sit on a raised sand platform.
-scene.add(moat); // Let's pretend the whole floor is water for a challenge, or just sand. 
-// Let's stick to Sand Ground.
-ground.setPosition(0, 0, 0);
-// Remove moat plane for now to avoid z-fighting if I changed my mind.
-// Re-add Ground as Sand.
-scene.children = []; // Clear
+moat.setPosition(0, 0.01, 0);
+scene.add(moat);
+// Let's stick to Sand Ground for now, maybe add water later or user request.
+// Actually code above had:
+// scene.children = []; scene.add(ground); 
+// I will keep the cleanup to ensure ground is used.
+scene.children = [];
 scene.add(ground);
 
 
@@ -108,38 +109,25 @@ createTower(-dist, dist);
 createTower(-dist, -dist);
 
 // Walls
-// Connect towers.
-// Front Wall
 const wallLen = keepSize;
 const wallH = 2.0;
 
 function createWall(x, z, rotY, len) {
   const w = new Cube(renderer.gl, 1.0);
   setSandMaterial(w);
-  // Position needs to be careful if rotated.
-  // Cube center is 0. 
   w.setPosition(x, wallH / 2, z);
   w.setRotation(0, rotY, 0);
   w.setScale(len, wallH, wallThick);
   scene.add(w);
 }
 
-// Positions slightly outward from keep? 
-// The keep is size 4. The towers are at ~2.4.
-// Let's put walls between towers.
-// Distance between tower centers is 2 * dist = ~4.8.
-// Wall length should be roughly 4.0?
 createWall(0, dist, 0, keepSize); // Back
 createWall(0, -dist, 0, keepSize); // Front
 createWall(dist, 0, 90, keepSize); // Right
 createWall(-dist, 0, 90, keepSize); // Left
 
-// Drawbridge (Front, -Z)
-// Rotated plank
+// Drawbridge
 const bridge = new Cube(renderer.gl, 1.0);
-// Texture wood? Or Sand? Let's use darker sand or maybe noise color.
-// Re-use texSand but tint it? 
-// We can change baseColor on instance!
 bridge.setTexture(texSand);
 bridge.setNormalMap(texSandNormal);
 bridge.baseColor = [0.6, 0.4, 0.2]; // Wood-ish tint
@@ -150,8 +138,6 @@ scene.add(bridge);
 
 
 // Position camera initially
-// "Miniature person walk around" -> Eye level? 
-// If Keep is 3 units tall, eye level might be 0.5 or 1.0?
 camera.position.set(0, 2, 8); // Start further back
 camera.yaw = -90;
 camera.pitch = -15;
@@ -185,13 +171,23 @@ function loop(time) {
 
   // Animate Light to show varying bump shadows
   const lightTime = time / 1000;
+  // Move sun higher for "Summer Day"
+  const sunX = Math.sin(lightTime * 0.2) * 20;
+  const sunY = 15;
+  const sunZ = Math.cos(lightTime * 0.2) * 20;
+
   const lightPos = {
-    position: { elements: [Math.sin(lightTime * 0.5) * 10, 6, Math.cos(lightTime * 0.5) * 10] },
-    color: [1, 1, 1],
-    ambient: [0.3, 0.3, 0.3] // Higher ambient for sand
+    position: { elements: [sunX, sunY, sunZ] },
+    color: [1, 0.95, 0.9], // Slightly warm sun
+    ambient: [0.3, 0.3, 0.4] // Blue-ish ambient (sky)
   };
 
   renderer.render(lightPos);
+
+  // Render Lens Flare on top
+  lensFlare.update(lightPos, camera);
+  lensFlare.draw(renderer.gl, camera);
+
   requestAnimationFrame(loop);
 }
 

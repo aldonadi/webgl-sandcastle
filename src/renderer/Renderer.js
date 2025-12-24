@@ -20,6 +20,10 @@ export class Renderer {
         this.camera = null;
     }
 
+    setClearColor(r, g, b, a = 1.0) {
+        this.gl.clearColor(r, g, b, a);
+    }
+
     onResize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
