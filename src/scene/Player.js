@@ -10,6 +10,9 @@ export class Player {
         this.velocity = { x: 0, y: 0, z: 0 };
         this.rotation = 0; // Yaw in radians
 
+        // Animation
+        this.breathingTime = 0;
+
         // Generate Texture
         this.texture = texGen.createTexture(256, 256, {
             color: '#ff4444',
